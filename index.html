@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="KEDEN44 — расширение и монитор статусов ДТ для специалистов по таможенному оформлению.">
+  <meta name="theme-color" content="#1261d8">
+  <title>KEDEN44 — инструменты для работы с ДТ</title>
+  <link rel="icon" href="/assets/keden44-mark.png">
+  <link rel="stylesheet" href="/styles.css">
+  <script>
+    if (location.hostname === 'keden44.com' || location.hostname === 'www.keden44.com') {
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function gtag() { window.dataLayer.push(arguments); };
+      window.gtag('js', new Date());
+      window.gtag('config', 'G-TKXSRRX2X8');
+      const tag = document.createElement('script');
+      tag.async = true;
+      tag.src = 'https://www.googletagmanager.com/gtag/js?id=G-TKXSRRX2X8';
+      document.head.appendChild(tag);
+    }
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="KEDEN44, на главную"><img src="/assets/keden44-mark.png" alt="" width="38" height="38"><span>KEDEN44</span></a>
+    <nav aria-label="Основная навигация"><a href="#product">Продукт</a><a href="#roadmap">В планах</a><a href="https://boosty.to/zhanat-arch" target="_blank" rel="noreferrer">Дневник разработки</a></nav>
+  </header>
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <img class="hero-mark" src="/assets/keden44-mark.png" alt="" aria-hidden="true">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> Закрытая бета</p>
+        <h1 id="hero-title">KEDEN44</h1>
+        <p class="lead">Рабочие инструменты для специалистов по таможенному оформлению: меньше ручных действий с документами и понятный контроль статусов ДТ.</p>
+        <div class="hero-actions"><a class="button primary" href="https://boosty.to/zhanat-arch" target="_blank" rel="noreferrer">Следить за разработкой</a><a class="button secondary" href="#product">Что уже работает</a></div>
+        <p class="independent">Независимый сервис. Не является частью KEDEN или КГД РК.</p>
+      </div>
+    </section>
+    <section id="product" class="product-band">
+      <div class="section-heading"><p class="eyebrow">Один продукт, два рабочих инструмента</p><h2>Документы в расширении, контроль в Мониторе</h2><p>Расширение помогает на странице KEDEN. Монитор собирает добавленные ДТ, показывает изменения и держит важное на виду.</p></div>
+      <div class="product-grid">
+        <article class="feature-row"><span class="feature-number">01</span><div><h3>Прикрепление документов</h3><p>Сопоставление файлов с кодами графы 44, пакетная обработка PDF и понятные статусы выполнения.</p></div><span class="tag">Расширение</span></article>
+        <article class="feature-row"><span class="feature-number">02</span><div><h3>Монитор статусов ДТ</h3><p>В работе, требуют внимания, условный выпуск, недавно выпущенные и архив в одном представлении.</p></div><span class="tag green">Монитор</span></article>
+        <article class="feature-row"><span class="feature-number">03</span><div><h3>Поиск и контроль сроков</h3><p>Фильтры по номеру, дате, БИН, товару, транспорту и контейнеру, напоминания по условным выпускам.</p></div><span class="tag amber">Локально</span></article>
+      </div>
+    </section>
+    <section class="monitor-band" aria-labelledby="monitor-title">
+      <div class="section-heading compact"><p class="eyebrow">Рабочий экран</p><h2 id="monitor-title">Статус виден сразу</h2></div>
+      <div class="monitor-preview" aria-label="Пример Монитора статусов ДТ">
+        <div class="preview-toolbar"><strong>Монитор статусов ДТ</strong><span>Импорт PDF</span></div>
+        <div class="preview-columns">
+          <div class="preview-column attention"><p>Требуют внимания <b>1</b></p><div class="declaration"><strong>55301/300926/00••••</strong><span>Получен запрос документов</span><small>Изменено сейчас</small></div></div>
+          <div class="preview-column work"><p>В работе <b>3</b></p><div class="declaration"><strong>55302/300926/00••••</strong><span>Проверка вложений</span><small>Следующая проверка через 12 минут</small></div></div>
+          <div class="preview-column conditional"><p>Условный выпуск <b>1</b></p><div class="declaration"><strong>55301/290926/00••••</strong><span>До срока осталось 18 дней</span><small>На контроле</small></div></div>
+          <div class="preview-column released"><p>Недавно выпущенные <b>2</b></p><div class="declaration"><strong>55302/290926/00••••</strong><span>Выпущена</span><small>Сегодня, 11:07</small></div></div>
+        </div>
+      </div>
+    </section>
+    <section id="roadmap" class="roadmap-band">
+      <div class="section-heading compact"><p class="eyebrow">Дальше</p><h2>Развиваем то, что экономит время специалиста</h2></div>
+      <ul class="roadmap-list"><li><span>01</span> Уведомления в Telegram и системе</li><li><span>02</span> Клиенты и правила отправки статусов</li><li><span>03</span> Синхронизация между компьютером и телефоном</li><li><span>04</span> Устанавливаемый PWA-монитор</li></ul>
+      <a class="text-link" href="https://boosty.to/zhanat-arch" target="_blank" rel="noreferrer">Новости, закрытые тесты и история разработки →</a>
+    </section>
+    <section class="support-band">
+      <p class="eyebrow">Октябрь 2026</p>
+      <h2>Месяц закрытого тестирования</h2>
+      <p>В октябре проверяем продукт вместе со специалистами и дорабатываем реальные рабочие сценарии. Поддержать разработку и зафиксировать условия участия можно уже сейчас через Boosty.</p>
+      <a class="button primary" href="https://boosty.to/zhanat-arch" target="_blank" rel="noreferrer">Поддержать проект</a>
+    </section>
+  </main>
+  <footer><div><strong>KEDEN44</strong><span>Минимально достаточный инструмент для ежедневной работы.</span></div><div class="footer-links"><a href="/privacy.html">Конфиденциальность</a><a href="https://github.com/zhanat-arch/keden44-site" target="_blank" rel="noreferrer">GitHub</a></div></footer>
+</body>
+</html>

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://keden44.com/sitemap.xml
