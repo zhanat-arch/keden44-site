@@ -1,0 +1,243 @@
+.board,
+.lane,
+.list,
+.card,
+.cardTop > div,
+.qrPreview > span {
+  min-width: 0;
+}
+
+.notificationSettings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 0 28px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.toolbar {
+  grid-template-columns: minmax(220px, 1fr) 160px 160px 140px auto minmax(160px, auto);
+}
+
+.summary {
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+}
+
+.board {
+  grid-template-columns: repeat(5, minmax(230px, 1fr));
+}
+
+.notificationSettings label {
+  display: inline-flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+}
+
+.notificationSettings input {
+  width: auto;
+  margin: 0;
+}
+
+.moreActions {
+  position: relative;
+}
+
+.moreActions summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 12px;
+  background: #fff;
+}
+
+.moreActions summary::-webkit-details-marker {
+  display: none;
+}
+
+.moreMenu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 190px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.moreMenu button {
+  width: 100%;
+}
+
+.card {
+  overflow: hidden;
+}
+
+.cardTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 42%);
+  align-items: start;
+}
+
+.pill {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.card h3,
+.dt,
+.meta,
+.desc,
+.hist,
+.qrPreview > span {
+  overflow-wrap: anywhere;
+}
+
+.qrPreview {
+  align-items: flex-start;
+}
+
+.qrPreview img {
+  flex: 0 0 64px;
+}
+
+.cardActions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cardActions button {
+  min-width: 0;
+  white-space: normal;
+}
+
+.primaryMeta {
+  margin-top: 6px;
+}
+
+.goodsPreview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cardDetails {
+  margin-top: 9px;
+  border-top: 1px dashed var(--line);
+}
+
+.cardDetails summary {
+  padding: 8px 0 0;
+  color: var(--blue);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.detailsBody {
+  padding-top: 8px;
+}
+
+.detailsBody .hist {
+  margin-top: 8px;
+}
+
+.loadMore {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 0 10px 10px;
+  background: #fff;
+}
+
+.loadMore[hidden] {
+  display: none;
+}
+
+.relationshipText {
+  margin: 2px 0 7px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cardBadges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.changeFlag {
+  align-self: flex-start;
+  border-radius: 99px;
+  padding: 4px 8px;
+  background: #fff1ed;
+  color: var(--red);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+body.fileDragActive main {
+  outline: 2px dashed var(--blue);
+  outline-offset: -8px;
+  background: #eff6ff;
+}
+
+body.fileDragActive #importPdfBtn {
+  box-shadow: 0 0 0 4px #bfdbfe;
+}
+
+.conditional .head {
+  border-top: 4px solid #7c3aed;
+}
+
+.conditionalDeadline {
+  margin-top: 8px;
+  padding: 8px;
+  border-left: 3px solid #7c3aed;
+  background: #f5f3ff;
+  color: #4c1d95;
+  font-size: 13px;
+}
+
+@media (max-width: 1500px) {
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .toolbar,
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .notificationSettings {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  .moreMenu {
+    left: 0;
+    right: auto;
+  }
+  .board {
+    grid-template-columns: 1fr;
+  }
+  .toolbar,
+  .summary {
+    grid-template-columns: 1fr;
+  }
+}
