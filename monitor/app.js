@@ -7,13 +7,14 @@ import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPag
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
+import { createTelegramClient } from './modules/telegram/client.js';
 
 (() => {
     const KEY = 'dt-board-records-v6';
     const SETTINGS_KEY = 'dt-board-settings-v1';
     const $ = (selector) => document.querySelector(selector);
     const els = {
-      addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
+      addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
       searchInput: $('#searchInput'), declarantBinFilter: $('#declarantBinFilter'), scopeSelect: $('#scopeSelect'), releasePeriod: $('#releasePeriod'), resetFiltersBtn: $('#resetFiltersBtn'), workInterval: $('#workInterval'), releasedInterval: $('#releasedInterval'), recentDays: $('#recentDays'), conditionalDays: $('#conditionalDays'), checkDueBtn: $('#checkDueBtn'), line: $('#line'), summary: $('#summary'),
       notifyReleased: $('#notifyReleased'), notifyStatusChanges: $('#notifyStatusChanges'), notifyDataChanges: $('#notifyDataChanges'), notifyProblems: $('#notifyProblems'), notifyConditional: $('#notifyConditional'),
       showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'),
@@ -22,6 +23,7 @@ import { recordMatchesQuery } from './modules/core/search.js';
       changed: $('#changed'), work: $('#work'), conditional: $('#conditional'), released: $('#released'), archive: $('#archive'), archiveMoreBtn: $('#archiveMoreBtn'), cc: $('#cc'), cw: $('#cw'), ccond: $('#ccond'), cr: $('#cr'), ca: $('#ca')
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
+    const telegram = createTelegramClient({ storage: store });
     const now = () => new Date().toLocaleString('ru-RU');
     const seed = [];
     let records = normalizeStoredRecords(loadRecords());
@@ -585,7 +587,7 @@ import { recordMatchesQuery } from './modules/core/search.js';
             : changes.length ? now() + ': ' + changes.join('; ') : now() + ': без изменений'];
           if (changes.length && !firstFill) {
             record.changed = true;
-            if (notification) sendNotice(notification.title, notification.body);
+            if (notification) sendNotice(notification.title, notification.body, `change:${record.id}:${record.status}:${record.releaseDate || ''}`);
           }
           els.line.textContent = changes.length && !firstFill
             ? 'Обнаружены изменения: ' + record.name
@@ -635,7 +637,7 @@ import { recordMatchesQuery } from './modules/core/search.js';
         const timing = info.remaining < 0
           ? 'срок прошёл ' + Math.abs(info.remaining) + ' дн. назад'
           : info.remaining === 0 ? 'срок сегодня' : 'осталось ' + info.remaining + ' дн.';
-        sendNotice('Условный выпуск: ' + (record.dtNumber || record.name), timing + '. Контроль до ' + info.deadline.toLocaleDateString('ru-RU'));
+        sendNotice('Условный выпуск: ' + (record.dtNumber || record.name), timing + '. Контроль до ' + info.deadline.toLocaleDateString('ru-RU'), `conditional:${record.id}:${reminderKey}`);
       }
       if (changed) saveRecords();
     }
@@ -699,21 +701,61 @@ import { recordMatchesQuery } from './modules/core/search.js';
       els.line.textContent = permission === 'granted' ? 'Уведомления включены' : 'Уведомления не включены в браузере';
       if (permission === 'granted') sendNotice('KEDEN44 Control', 'Уведомления включены');
     }
+    async function refreshTelegramStatus() {
+      try {
+        const result = await telegram.connection();
+        els.telegramBtn.textContent = result.linked ? 'Telegram подключён' : 'Подключить Telegram';
+        els.telegramBtn.classList.toggle('connected', Boolean(result.linked));
+        els.telegramStatus.textContent = result.linked
+          ? 'Telegram: подключён' + (result.username ? ` (@${result.username})` : '')
+          : 'Telegram: не подключён';
+        return result.linked;
+      } catch {
+        els.telegramBtn.textContent = 'Подключить Telegram';
+        els.telegramStatus.textContent = 'Telegram: сервис временно недоступен';
+        return false;
+      }
+    }
+    async function connectTelegram() {
+      els.telegramBtn.disabled = true;
+      els.telegramStatus.textContent = 'Telegram: создаю ссылку подключения...';
+      try {
+        const link = await telegram.createLink();
+        if (!link.url) throw new Error('Бот пока не готов');
+        window.open(link.url, '_blank', 'noopener');
+        els.telegramStatus.textContent = 'В Telegram нажмите Start. Проверяю подключение...';
+        for (let attempt = 0; attempt < 30; attempt += 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          if (await refreshTelegramStatus()) {
+            els.line.textContent = 'Telegram подключён';
+            return;
+          }
+        }
+        els.telegramStatus.textContent = 'Нажмите кнопку ещё раз, если ссылка истекла';
+      } catch (error) {
+        els.telegramStatus.textContent = 'Telegram: ' + error.message;
+      } finally {
+        els.telegramBtn.disabled = false;
+      }
+    }
     function notifyProblemOnce(record, key, title, body) {
       if (!settings.notifyProblems || record.lastProblemKey === key) return;
       record.lastProblemKey = key;
-      sendNotice(title, body);
+      sendNotice(title, body, `problem:${record.id}:${key}`);
     }
-    async function sendNotice(title, body) {
-      if (settings.privacyMode || !('Notification' in window) || Notification.permission !== 'granted') return;
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready.catch(() => null);
-        if (registration) {
-          await registration.showNotification(title, { body, icon: './icon-192.png', badge: './icon-192.png', tag: 'keden44-status' });
-          return;
+    async function sendNotice(title, body, dedupeKey = '') {
+      if (settings.privacyMode) return;
+      telegram.notify(title, body, dedupeKey).catch(() => {});
+      if ('Notification' in window && Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready.catch(() => null);
+          if (registration) {
+            await registration.showNotification(title, { body, icon: './icon-192.png', badge: './icon-192.png', tag: dedupeKey || 'keden44-status' });
+            return;
+          }
         }
+        new Notification(title, { body });
       }
-      new Notification(title, { body });
     }
     function exportJson() { const blob = new Blob([JSON.stringify(records, null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'KEDEN44-backup-' + new Date().toISOString().slice(0, 10) + '.json'; link.click(); URL.revokeObjectURL(url); els.line.textContent = 'Резервная копия создана'; }
     async function importJson(file) {
@@ -826,12 +868,14 @@ import { recordMatchesQuery } from './modules/core/search.js';
     els.notifyConditional.addEventListener('change', updateSettings);
     for (const input of [els.showDeclarant, els.showTransport, els.showGoods, els.showSender, els.showReceiver, els.privacyMode]) input.addEventListener('change', updateSettings);
     els.notifyBtn.addEventListener('click', enableNotifications);
+    els.telegramBtn.addEventListener('click', connectTelegram);
     els.exportBtn.addEventListener('click', exportJson);
     els.importJsonBtn.addEventListener('click', () => els.jsonInput.click());
     els.jsonInput.addEventListener('change', event => importJson(event.target.files?.[0]));
     window.dtBoardDebug = { get records() { return records; }, openForm, render };
     const transferMessage = importTransferFromUrl();
     applySettings();
+    refreshTelegramStatus();
     saveRecords();
     render();
     if (transferMessage) els.line.textContent = transferMessage;

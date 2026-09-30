@@ -1,5 +1,5 @@
-const CACHE = 'keden44-monitor-v1';
-const ASSETS = ['./', './index.html', './styles.css', './monitor-public.css', './app.js', './monitor-public.js', './manifest.webmanifest', './modules/keden/client.js'];
+const CACHE = 'keden44-monitor-v2';
+const ASSETS = ['./', './index.html', './styles.css', './monitor-public.css', './app.js', './monitor-public.js', './manifest.webmanifest', './modules/keden/client.js', './modules/telegram/client.js'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))));
 self.addEventListener('fetch', event => {
