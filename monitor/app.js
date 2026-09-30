@@ -23,7 +23,7 @@ import { recordMatchesQuery } from './modules/core/search.js';
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
     const now = () => new Date().toLocaleString('ru-RU');
-    const seed = [{ id: crypto.randomUUID(), name: 'Тестовая ДТ KEDEN', dtNumber: '55301/260626/0037298', status: 'Выпущена', releaseDate: '29.06.2026 09:09', sender: '', receiver: '', invoice: '', tnved: '', customsValue: '256070.85 тг', netWeight: '0.500000 кг', grossWeight: '0.760000 кг', kedenUrl: 'https://keden.kgd.gov.kz/qrpage?url=/declaration/declarations/qr-data/01KW2B2QX0249W15C0GMRKAEKR/DT', description: 'ТАМОЖЕННЫЙ ПОСТ «ЖЕТЫСУ»', note: 'Добавлено из первого QR.', changed: false, archived: false, lastChecked: now(), checkedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), history: ['Создана запись: статус Выпущена'] }];
+    const seed = [];
     let records = normalizeStoredRecords(loadRecords());
     let settings = loadSettings();
     let query = '';
@@ -82,6 +82,42 @@ import { recordMatchesQuery } from './modules/core/search.js';
     }
     function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(records)); } catch {} }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
+    function importTransferFromUrl() {
+      const params = new URLSearchParams(location.search);
+      if (params.get('source') !== 'extension') return '';
+      const dtNumber = declarationNumberParts(params.get('dt') || '').baseNumber;
+      const qrCandidate = params.get('qr') || '';
+      let kedenUrl = '';
+      try {
+        const parsed = new URL(qrCandidate);
+        if (parsed.protocol === 'https:' && parsed.hostname === 'keden.kgd.gov.kz' && parsed.pathname === '/qrpage') kedenUrl = parsed.toString();
+      } catch {}
+      history.replaceState({}, '', location.pathname + location.hash);
+      if (!/^\d{5}\/\d{6}\/\d{7}$/.test(dtNumber)) return 'Расширение открыло монитор, но номер ДТ прочитать не удалось';
+      const existing = records.find(record => declarationNumberParts(record.dtNumber).baseNumber === dtNumber);
+      if (existing) {
+        if (kedenUrl && !existing.kedenUrl) existing.kedenUrl = kedenUrl;
+        existing.updatedAt = new Date().toISOString();
+        existing.history = [...(existing.history || []), now() + ': повторно передана из расширения'];
+        return 'ДТ ' + dtNumber + ' уже была в мониторе';
+      }
+      records.unshift({
+        id: crypto.randomUUID(),
+        name: 'ДТ ' + dtNumber,
+        dtNumber,
+        status: 'Добавлена в монитор',
+        releaseDate: '',
+        kedenUrl,
+        changed: false,
+        archived: false,
+        lastChecked: '',
+        checkedAt: '',
+        updatedAt: new Date().toISOString(),
+        logs: [now() + ' | Добавлена из расширения KEDEN44'],
+        history: [now() + ': передана из открытой ДТ в расширении'],
+      });
+      return 'ДТ ' + dtNumber + ' добавлена. Проверка статуса начнётся автоматически';
+    }
     function checkIntervalMs(record) { return statusKind(record.status) === 'released' ? Number(settings.releasedHours || 6) * 3600000 : Number(settings.workMinutes || 15) * 60000; }
     function isDue(record) { if (record.archived || !record.kedenUrl) return false; const last = Date.parse(record.checkedAt || record.updatedAt || 0); return !last || Date.now() - last >= checkIntervalMs(record); }
     function nextCheckText(record) { if (record.archived) return 'архив'; if (!record.kedenUrl) return 'нет QR'; const last = Date.parse(record.checkedAt || record.updatedAt || 0); if (!last) return 'сейчас'; const next = last + checkIntervalMs(record); return Date.now() >= next ? 'сейчас' : new Date(next).toLocaleString('ru-RU'); }
@@ -794,9 +830,11 @@ import { recordMatchesQuery } from './modules/core/search.js';
     els.importJsonBtn.addEventListener('click', () => els.jsonInput.click());
     els.jsonInput.addEventListener('change', event => importJson(event.target.files?.[0]));
     window.dtBoardDebug = { get records() { return records; }, openForm, render };
+    const transferMessage = importTransferFromUrl();
     applySettings();
     saveRecords();
     render();
+    if (transferMessage) els.line.textContent = transferMessage;
     setTimeout(() => { checkDue(true); checkConditionalReminders(); }, 5000);
     setInterval(() => { checkDue(true); checkConditionalReminders(); }, 60000);
   })();

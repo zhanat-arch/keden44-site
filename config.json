@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "access": {
+    "mode": "open_test",
+    "title": "Бесплатное тестирование до 31 октября 2026",
+    "detail": "Все готовые функции доступны. Подписку можно оформить по акционной цене 2,5 доллара США в месяц.",
+    "checkMessage": "Открытое тестирование активно до 31 октября 2026"
+  },
+  "links": {
+    "monitor": "https://keden44.com/monitor/",
+    "subscription": "https://keden44.com/subscription/"
+  },
+  "price": {
+    "monthlyUsd": "2.50"
+  }
+}
