@@ -150,6 +150,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
           const checked = Date.parse(record.checkedAt || '');
           const isNew = !Number.isNaN(delivered) && !Number.isNaN(checked) && delivered > checked;
           const notificationText = String(item.text || '');
+          if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(notificationText)) {
+            record.requestWorkflow = 'new';
+            record.requestNotificationId = item.id;
+          }
           if (/\bДТ\s+\d{5}\/\d{6}\/\d{7}\s+условно выпущен[ао]?/i.test(notificationText)) {
             record.status = 'Условно выпущена';
             if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
@@ -359,13 +363,21 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const extendButton = isConditionalRelease(record.status) ? '<button data-action="extend">Продлить срок</button>' : '';
       const letterButton = record.conditionalExtensionLetterName ? '<button data-action="letter">Письмо</button>' : '';
       const archiveLabel = record.archived ? 'Вернуть' : 'В архив';
+      const hasDocumentRequest = /дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(record.lastKedenNotification || '');
+      const requestActions = hasDocumentRequest
+        ? '<button data-action="request-progress">Собираем документы</button><button data-action="request-done">Отвечено</button>'
+        : '';
       const node = document.createElement('article');
       node.className = 'card';
       const actionsHtml = record.transientDuplicate
         ? '<button data-action="dismiss">Убрать копию</button>'
-        : '<button data-action="open">KEDEN</button>' + previewButton + extendButton + letterButton + '<button data-action="check">Проверить</button><button data-action="edit">Править</button><button data-action="clear">Принято</button><button data-action="archive">' + archiveLabel + '</button><button data-action="delete">Удалить</button>';
+        : '<button data-action="open">KEDEN</button>' + previewButton + extendButton + letterButton + requestActions + '<button data-action="check">Проверить</button><button data-action="edit">Править</button><button data-action="clear">Принято</button><button data-action="archive">' + archiveLabel + '</button><button data-action="delete">Удалить</button>';
+      const workflowText = record.requestWorkflow === 'progress' ? 'Собираем документы.' : record.requestWorkflow === 'done' ? 'Ответ отправлен.' : '';
+      const conditionalRequestHint = isConditionalRelease(record.status) && hasDocumentRequest
+        ? '<em>Возможно, это запрос сертификата. Приложите его, когда будет готов.</em>'
+        : '';
       const kedenEventHtml = record.lastKedenNotification
-        ? '<button class="kedenEvent' + (record.changed ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</span><small>Смотреть все уведомления</small></button>'
+        ? '<button class="kedenEvent' + (record.changed ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span class="kedenEventText"><b>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</b>' + (workflowText ? '<i>' + esc(workflowText) + '</i>' : '') + conditionalRequestHint + '</span><small>Смотреть все уведомления</small></button>'
         : '';
       node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges"><span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span></div></div>' + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + deadlineHtml + detailsHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
@@ -381,6 +393,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       node.querySelector('[data-action="extend"]')?.addEventListener('click', () => openExtensionForm(record));
       node.querySelector('[data-action="letter"]')?.addEventListener('click', () => openSupportDocument(record));
       node.querySelector('[data-action="check"]').addEventListener('click', () => check(record.id));
+      node.querySelector('[data-action="request-progress"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'progress'));
+      node.querySelector('[data-action="request-done"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'done'));
       node.querySelector('[data-action="edit"]').addEventListener('click', () => openForm(record));
       node.querySelector('[data-action="clear"]').addEventListener('click', () => clearChanged(record.id));
       node.querySelector('[data-action="archive"]').addEventListener('click', () => toggleArchive(record.id));
@@ -803,6 +817,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (changed) saveRecords();
     }
     function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; if (isCleared(record.status)) record.archived = true; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
+    function setRequestWorkflow(id, value) { const record = records.find(r => r.id === id); if (!record) return; record.requestWorkflow = value; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (value === 'done' ? ': ответ на запрос отправлен' : ': начат сбор документов по запросу')]; saveRecords(); render(); }
     function toggleArchive(id) { const record = records.find(r => r.id === id); if (!record) return; record.archived = !record.archived; record.updatedAt = new Date().toISOString(); saveRecords(); render(); }
     async function deleteRecord(id) { const record = records.find(r => r.id === id); if (!record) return; if (!window.confirm('Удалить запись "' + (record.name || record.dtNumber || 'без имени') + '"?')) return; records = records.filter(r => r.id !== id); await Promise.all([deleteFirstPagePreview(id).catch(() => {}), deleteSupportDocument(id).catch(() => {})]); saveRecords(); render(); }
     function applySettings() {
