@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { notificationForChange } from './modules/core/notifications.js';
+import { notificationForChange, notificationTimestamp } from './modules/core/notifications.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
 import { requestKedenCheck } from './modules/keden/client.js';
@@ -108,11 +108,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function applyKedenNotifications(items = []) {
       let changedCount = 0;
       let recordsTouched = false;
-      const notificationItems = [...(Array.isArray(items) ? items : [])].sort((left, right) => Date.parse(left.deliveredAt || 0) - Date.parse(right.deliveredAt || 0));
+      const notificationItems = [...(Array.isArray(items) ? items : [])].sort((left, right) => notificationTimestamp(left.deliveredAt) - notificationTimestamp(right.deliveredAt));
       const latestByNumber = new Map();
       const latestItemByNumber = new Map();
       for (const item of notificationItems) {
-        const delivered = Date.parse(item.deliveredAt || '');
+        const delivered = notificationTimestamp(item.deliveredAt);
         if (Number.isNaN(delivered)) continue;
         for (const dtNumber of item.dtNumbers || []) {
           const number = declarationNumberParts(dtNumber).baseNumber;
@@ -126,7 +126,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         const number = declarationNumberParts(record.dtNumber).baseNumber;
         const latest = latestByNumber.get(number);
         const latestEntry = latestItemByNumber.get(number);
-        const checked = Date.parse(record.checkedAt || '');
+        const checked = notificationTimestamp(record.checkedAt);
         if (latestEntry && (record.lastKedenNotification !== latestEntry.item.text || record.lastKedenNotificationAt !== latestEntry.item.deliveredAt)) {
           record.lastKedenNotification = String(latestEntry.item.text || 'Новое уведомление KEDEN');
           record.lastKedenNotificationAt = latestEntry.item.deliveredAt || '';
@@ -146,8 +146,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
           if (known.has(item.id)) continue;
           known.add(item.id);
           record.kedenNotificationIds = [...known].slice(-100);
-          const delivered = Date.parse(item.deliveredAt || '');
-          const checked = Date.parse(record.checkedAt || '');
+          const delivered = notificationTimestamp(item.deliveredAt);
+          const checked = notificationTimestamp(record.checkedAt);
           const isNew = !Number.isNaN(delivered) && !Number.isNaN(checked) && delivered > checked;
           const notificationText = String(item.text || '');
           if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(notificationText)) {
@@ -306,7 +306,13 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return text.length > 110 ? text.slice(0, 107) + '...' : text || 'Уведомление KEDEN';
     }
     function openRecordNotifications(record) {
-      const notifications = (record.history || []).filter(item => /уведомление KEDEN:/i.test(item)).reverse();
+      const notifications = (record.history || [])
+        .filter(item => /уведомление KEDEN:/i.test(item))
+        .sort((left, right) => {
+          const leftTime = notificationTimestamp(left.split(': уведомление KEDEN:')[0]);
+          const rightTime = notificationTimestamp(right.split(': уведомление KEDEN:')[0]);
+          return (Number.isNaN(rightTime) ? 0 : rightTime) - (Number.isNaN(leftTime) ? 0 : leftTime);
+        });
       els.notificationsTitle.textContent = 'Уведомления · ' + record.dtNumber;
       els.notificationsList.innerHTML = notifications.length
         ? notifications.map(item => {
