@@ -1,7 +1,13 @@
-const CACHE = 'keden44-monitor-v18';
-const ASSETS = ['./', './index.html', './styles.css', './monitor-public.css?v=2', './app.js?v=14', './monitor-public.js?v=3', './manifest.webmanifest', './modules/keden/client.js', './modules/telegram/client.js'];
+const RELEASE = '2026.10.01.19';
+const CACHE_PREFIX = 'keden44-monitor-';
+const CACHE = CACHE_PREFIX + RELEASE;
+const ASSETS = ['./', './index.html', './styles.css', './themes/responsive-board.css', './monitor-public.css?v=3', './app.js?v=15', './monitor-public.js?v=4', './manifest.webmanifest', './modules/keden/client.js', './modules/telegram/client.js'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
-self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
+self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'GET_VERSION') event.source?.postMessage({ type: 'KEDEN44_VERSION', release: RELEASE });
+});
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return;
@@ -32,7 +38,7 @@ self.addEventListener('fetch', event => {
     return;
   }
   if (event.request.method !== 'GET') return;
-  event.respondWith(fetch(event.request).then(response => {
+  event.respondWith(fetch(event.request, { cache: 'no-store' }).then(response => {
     const copy = response.clone();
     caches.open(CACHE).then(cache => cache.put(event.request, copy));
     return response;
