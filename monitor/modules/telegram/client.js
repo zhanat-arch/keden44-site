@@ -42,6 +42,10 @@ export function createTelegramClient({
   return {
     connection: () => credentials ? authenticated('/connection') : Promise.resolve({ ok: true, linked: false }),
     createLink: () => authenticated('/link'),
+    sync: watches => credentials ? authenticated('/sync', { watches }) : Promise.resolve({ ok: true, skipped: true, watchCount: 0 }),
+    googleAuth: credential => authenticated('/auth/google', { credential }),
+    cloudPull: () => authenticated('/cloud/pull'),
+    cloudPush: (records, settings) => authenticated('/cloud/push', { records, settings }),
     notify: (title, body, dedupeKey) => authenticated('/notify', {
       text: `${String(title).trim()}\n\n${String(body).trim()}`,
       dedupeKey

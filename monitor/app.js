@@ -12,9 +12,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
 (() => {
     const KEY = 'dt-board-records-v6';
     const SETTINGS_KEY = 'dt-board-settings-v1';
+    const GOOGLE_CLIENT_ID = '57476430330-a9mvuo5sh4gec820jtd1u5ldcgrm8tpn.apps.googleusercontent.com';
     const $ = (selector) => document.querySelector(selector);
     const els = {
-      addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
+      addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), googleSignIn: $('#googleSignIn'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
       searchInput: $('#searchInput'), declarantBinFilter: $('#declarantBinFilter'), scopeSelect: $('#scopeSelect'), releasePeriod: $('#releasePeriod'), resetFiltersBtn: $('#resetFiltersBtn'), workInterval: $('#workInterval'), releasedInterval: $('#releasedInterval'), recentDays: $('#recentDays'), conditionalDays: $('#conditionalDays'), checkDueBtn: $('#checkDueBtn'), line: $('#line'), summary: $('#summary'),
       notifyReleased: $('#notifyReleased'), notifyStatusChanges: $('#notifyStatusChanges'), notifyDataChanges: $('#notifyDataChanges'), notifyProblems: $('#notifyProblems'), notifyConditional: $('#notifyConditional'),
       showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'),
@@ -34,6 +35,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
     let scope = 'all';
     let archiveVisibleCount = 20;
     let dueCheckRunning = false;
+    let telegramSyncTimer;
+    let cloudSyncTimer;
+    let googleConnected = false;
+    let googleCloudLoaded = false;
 
     function loadRecords() { try { const saved = store && store.getItem(KEY); return saved ? JSON.parse(saved) : seed; } catch { return seed; } }
     function normalizeStoredRecords(items) {
@@ -82,11 +87,12 @@ import { createTelegramClient } from './modules/telegram/client.js';
         return defaults;
       }
     }
-    function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(records)); } catch {} }
-    function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
+    function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(records)); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
+    function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
     function importTransferFromUrl() {
       const params = new URLSearchParams(location.search);
       if (params.get('source') !== 'extension') return '';
+      const action = params.get('action') || 'watch';
       const dtNumber = declarationNumberParts(params.get('dt') || '').baseNumber;
       const qrCandidate = params.get('qr') || '';
       let kedenUrl = '';
@@ -97,8 +103,16 @@ import { createTelegramClient } from './modules/telegram/client.js';
       history.replaceState({}, '', location.pathname + location.hash);
       if (!/^\d{5}\/\d{6}\/\d{7}$/.test(dtNumber)) return 'Расширение открыло монитор, но номер ДТ прочитать не удалось';
       const existing = records.find(record => declarationNumberParts(record.dtNumber).baseNumber === dtNumber);
+      if (action === 'unwatch') {
+        if (!existing) return 'ДТ ' + dtNumber + ' не была добавлена в монитор';
+        existing.archived = true;
+        existing.updatedAt = new Date().toISOString();
+        existing.history = [...(existing.history || []), now() + ': наблюдение остановлено из расширения'];
+        return 'Наблюдение за ДТ ' + dtNumber + ' остановлено';
+      }
       if (existing) {
         if (kedenUrl && !existing.kedenUrl) existing.kedenUrl = kedenUrl;
+        existing.archived = false;
         existing.updatedAt = new Date().toISOString();
         existing.history = [...(existing.history || []), now() + ': повторно передана из расширения'];
         return 'ДТ ' + dtNumber + ' уже была в мониторе';
@@ -120,9 +134,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
       });
       return 'ДТ ' + dtNumber + ' добавлена. Проверка статуса начнётся автоматически';
     }
-    function checkIntervalMs(record) { return statusKind(record.status) === 'released' ? Number(settings.releasedHours || 6) * 3600000 : Number(settings.workMinutes || 15) * 60000; }
-    function isDue(record) { if (record.archived || !record.kedenUrl) return false; const last = Date.parse(record.checkedAt || record.updatedAt || 0); return !last || Date.now() - last >= checkIntervalMs(record); }
-    function nextCheckText(record) { if (record.archived) return 'архив'; if (!record.kedenUrl) return 'нет QR'; const last = Date.parse(record.checkedAt || record.updatedAt || 0); if (!last) return 'сейчас'; const next = last + checkIntervalMs(record); return Date.now() >= next ? 'сейчас' : new Date(next).toLocaleString('ru-RU'); }
+    function isRevokedStatus(status = '') { return /отозван|аннулирован/i.test(String(status)); }
+    function isTerminalStatus(status = '') { return isReleased(status) || isRevokedStatus(status); }
+    function checkIntervalMs(record) { return isConditionalRelease(record.status) ? Number(settings.releasedHours || 6) * 3600000 : Number(settings.workMinutes || 15) * 60000; }
+    function isDue(record) { if (record.archived || !record.kedenUrl || isTerminalStatus(record.status)) return false; const last = Date.parse(record.checkedAt || record.updatedAt || 0); return !last || Date.now() - last >= checkIntervalMs(record); }
+    function nextCheckText(record) { if (record.archived) return 'архив'; if (isTerminalStatus(record.status)) return 'проверки завершены'; if (!record.kedenUrl) return 'нет QR'; const last = Date.parse(record.checkedAt || record.updatedAt || 0); if (!last) return 'сейчас'; const next = last + checkIntervalMs(record); return Date.now() >= next ? 'сейчас' : new Date(next).toLocaleString('ru-RU'); }
     function conditionalInfo(record) {
       if (!isConditionalRelease(record.status)) return null;
       const extended = /^\d{4}-\d{2}-\d{2}$/.test(record.conditionalExtendedUntil || '')
@@ -607,7 +623,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       saveRecords();
       render();
     }
-    async function checkAll() { for (const record of records.filter(r => !r.archived && r.kedenUrl)) await check(record.id); }
+    async function checkAll() { for (const record of records.filter(r => !r.archived && r.kedenUrl && !isTerminalStatus(r.status))) await check(record.id); }
     async function checkDue(silent = false) {
       if (dueCheckRunning) return;
       const due = records.filter(isDue);
@@ -701,20 +717,121 @@ import { createTelegramClient } from './modules/telegram/client.js';
       els.line.textContent = permission === 'granted' ? 'Уведомления включены' : 'Уведомления не включены в браузере';
       if (permission === 'granted') sendNotice('KEDEN44 Control', 'Уведомления включены');
     }
+    function renderGoogleProfile(profile) {
+      if (!els.googleSignIn) return;
+      els.googleSignIn.replaceChildren();
+      const status = document.createElement('span');
+      status.className = 'googleAccount';
+      status.textContent = 'Синхронизация: ' + (profile?.email || 'Google подключён');
+      status.title = 'Записи этого монитора синхронизируются между вашими устройствами';
+      els.googleSignIn.append(status);
+    }
+    function mergeCloudRecords(remoteRecords = []) {
+      const merged = new Map();
+      const keyOf = record => declarationNumberParts(record?.dtNumber || '').baseNumber || record?.id;
+      for (const record of [...records, ...remoteRecords]) {
+        if (!record || typeof record !== 'object') continue;
+        const key = keyOf(record);
+        if (!key) continue;
+        const current = merged.get(key);
+        if (!current || Date.parse(record.updatedAt || 0) >= Date.parse(current.updatedAt || 0)) merged.set(key, record);
+      }
+      records = normalizeStoredRecords([...merged.values()]);
+    }
+    async function pullCloudAndMerge() {
+      const result = await telegram.cloudPull();
+      const cloud = result.cloud || {};
+      mergeCloudRecords(Array.isArray(cloud.records) ? cloud.records : []);
+      if (cloud.settings && typeof cloud.settings === 'object' && Object.keys(cloud.settings).length) {
+        settings = { ...settings, ...cloud.settings };
+        try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+        applySettings();
+      }
+      googleCloudLoaded = true;
+      saveRecords();
+      render();
+      els.line.textContent = 'Синхронизация Google завершена: ' + records.length + ' ДТ';
+    }
+    async function pushCloud() {
+      if (!googleConnected || !googleCloudLoaded) return;
+      await telegram.cloudPush(records, settings);
+    }
+    function scheduleCloudSync() {
+      if (!googleConnected || !googleCloudLoaded) return;
+      clearTimeout(cloudSyncTimer);
+      cloudSyncTimer = setTimeout(() => pushCloud().catch(() => {}), 1200);
+    }
+    async function handleGoogleCredential(response) {
+      try {
+        const result = await telegram.googleAuth(response.credential);
+        googleConnected = true;
+        googleCloudLoaded = false;
+        renderGoogleProfile(result.profile);
+        await pullCloudAndMerge();
+      } catch (error) {
+        els.line.textContent = 'Вход Google не выполнен: ' + error.message;
+      }
+    }
+    function initializeGoogleSignIn(attempt = 0) {
+      if (!els.googleSignIn || googleConnected) return;
+      if (!window.google?.accounts?.id) {
+        if (attempt < 40) setTimeout(() => initializeGoogleSignIn(attempt + 1), 250);
+        return;
+      }
+      window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+      els.googleSignIn.replaceChildren();
+      window.google.accounts.id.renderButton(els.googleSignIn, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'rectangular' });
+    }
     async function refreshTelegramStatus() {
       try {
         const result = await telegram.connection();
         els.telegramBtn.textContent = result.linked ? 'Telegram подключён' : 'Подключить Telegram';
         els.telegramBtn.classList.toggle('connected', Boolean(result.linked));
         els.telegramStatus.textContent = result.linked
-          ? 'Telegram: подключён' + (result.username ? ` (@${result.username})` : '')
+          ? 'Telegram: подключён' + (result.username ? ` (@${result.username})` : '') + ` · ДТ: ${result.watchCount || 0}`
           : 'Telegram: не подключён';
+        if (result.google) {
+          googleConnected = true;
+          renderGoogleProfile(result.google);
+          if (!googleCloudLoaded) await pullCloudAndMerge();
+        }
         return result.linked;
       } catch {
         els.telegramBtn.textContent = 'Подключить Telegram';
         els.telegramStatus.textContent = 'Telegram: сервис временно недоступен';
         return false;
       }
+    }
+    function watchFromRecord(record) {
+      if (record.archived || !record.kedenUrl || isTerminalStatus(record.status)) return null;
+      try {
+        const parsed = new URL(record.kedenUrl);
+        const sourcePath = parsed.pathname === '/qrpage' ? parsed.searchParams.get('url') || '' : parsed.pathname;
+        const match = sourcePath.match(/\/qr-data\/([A-Za-z0-9]{16,64})\/DT$/);
+        if (!match) return null;
+        return {
+          id: record.id,
+          qrId: match[1],
+          dtNumber: record.dtNumber,
+          name: record.name,
+          workMinutes: settings.workMinutes,
+          releasedHours: settings.releasedHours,
+          notifyReleased: settings.notifyReleased,
+          notifyStatusChanges: settings.notifyStatusChanges,
+          notifyDataChanges: settings.notifyDataChanges,
+          notifyProblems: settings.notifyProblems
+        };
+      } catch { return null; }
+    }
+    async function syncTelegramWatches() {
+      const watches = records.map(watchFromRecord).filter(Boolean);
+      const result = await telegram.sync(watches);
+      if (!result.skipped && els.telegramStatus) els.telegramStatus.textContent = `Telegram: фоновое наблюдение · ДТ: ${result.watchCount}`;
+      return result;
+    }
+    function scheduleTelegramSync() {
+      clearTimeout(telegramSyncTimer);
+      telegramSyncTimer = setTimeout(() => syncTelegramWatches().catch(() => {}), 800);
     }
     async function connectTelegram() {
       els.telegramBtn.disabled = true;
@@ -727,6 +844,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         for (let attempt = 0; attempt < 30; attempt += 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
           if (await refreshTelegramStatus()) {
+            await syncTelegramWatches();
             els.line.textContent = 'Telegram подключён';
             return;
           }
@@ -869,13 +987,19 @@ import { createTelegramClient } from './modules/telegram/client.js';
     for (const input of [els.showDeclarant, els.showTransport, els.showGoods, els.showSender, els.showReceiver, els.privacyMode]) input.addEventListener('change', updateSettings);
     els.notifyBtn.addEventListener('click', enableNotifications);
     els.telegramBtn.addEventListener('click', connectTelegram);
+    els.googleSignIn?.addEventListener('click', event => {
+      if (!event.target.closest('.googleFallback')) return;
+      initializeGoogleSignIn();
+      window.google?.accounts?.id?.prompt();
+    });
     els.exportBtn.addEventListener('click', exportJson);
     els.importJsonBtn.addEventListener('click', () => els.jsonInput.click());
     els.jsonInput.addEventListener('change', event => importJson(event.target.files?.[0]));
     window.dtBoardDebug = { get records() { return records; }, openForm, render };
     const transferMessage = importTransferFromUrl();
     applySettings();
-    refreshTelegramStatus();
+    initializeGoogleSignIn();
+    refreshTelegramStatus().then(linked => { if (linked) syncTelegramWatches().catch(() => {}); });
     saveRecords();
     render();
     if (transferMessage) els.line.textContent = transferMessage;

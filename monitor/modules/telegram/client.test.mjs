@@ -26,6 +26,7 @@ test('registers once and reuses device credentials', async () => {
 
   await client.createLink();
   await client.connection();
+  await client.sync([{ id: 'dt-1', qrId: 'ABCDEFGHIJKLMNOP' }]);
   await client.notify('Статус', 'ДТ выпущена', 'dt:released');
 
   assert.equal(calls.filter(call => call.url.endsWith('/register')).length, 1);
