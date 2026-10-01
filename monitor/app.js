@@ -95,6 +95,34 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function persistentRecords() { return records.filter(record => !record.transientDuplicate); }
     function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
+    function applyKedenNotifications(items = []) {
+      let changedCount = 0;
+      for (const item of Array.isArray(items) ? items : []) {
+        for (const dtNumber of item.dtNumbers || []) {
+          const baseNumber = declarationNumberParts(dtNumber).baseNumber;
+          const record = records.find(candidate => declarationNumberParts(candidate.dtNumber).baseNumber === baseNumber);
+          if (!record || record.transientDuplicate) continue;
+          const known = new Set(record.kedenNotificationIds || []);
+          if (known.has(item.id)) continue;
+          known.add(item.id);
+          record.kedenNotificationIds = [...known].slice(-100);
+          record.changed = true;
+          record.updatedAt = new Date().toISOString();
+          record.lastKedenNotification = item.text;
+          const delivered = Date.parse(item.deliveredAt || '');
+          const time = Number.isNaN(delivered) ? now() : new Date(delivered).toLocaleString('ru-RU');
+          record.history = [...(record.history || []), `${time}: уведомление KEDEN: ${String(item.text || '').slice(0, 280)}`];
+          sendNotice(`Новое уведомление KEDEN: ${baseNumber}`, String(item.text || '').slice(0, 240), `keden:${item.id}`);
+          changedCount++;
+        }
+      }
+      if (changedCount) {
+        saveRecords();
+        render();
+        els.line.textContent = `Новых уведомлений KEDEN по ДТ: ${changedCount}`;
+      }
+      return changedCount;
+    }
     function importTransferFromUrl() {
       const params = new URLSearchParams(location.search);
       if (params.get('source') !== 'extension') return '';
@@ -1035,6 +1063,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     els.importJsonBtn.addEventListener('click', () => els.jsonInput.click());
     els.jsonInput.addEventListener('change', event => importJson(event.target.files?.[0]));
     window.dtBoardDebug = { get records() { return records; }, openForm, render };
+    window.KEDEN44_MONITOR = Object.freeze({ applyNotifications: applyKedenNotifications });
     const transferMessage = importTransferFromUrl();
     applySettings();
     initializeGoogleSignIn();

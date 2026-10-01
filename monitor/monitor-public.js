@@ -36,6 +36,19 @@ window.addEventListener('appinstalled', () => {
 
 document.querySelectorAll('.compactControls').forEach(panel => panel.removeAttribute('open'));
 
+const KEDEN_NOTIFICATIONS_KEY = 'keden44-keden-notifications';
+function applyKedenNotifications(items, attempt = 0) {
+  if (window.KEDEN44_MONITOR?.applyNotifications) {
+    window.KEDEN44_MONITOR.applyNotifications(Array.isArray(items) ? items : []);
+    return;
+  }
+  if (attempt < 20) setTimeout(() => applyKedenNotifications(items, attempt + 1), 250);
+}
+window.addEventListener('keden44-notifications', event => applyKedenNotifications(event.detail));
+try {
+  applyKedenNotifications(JSON.parse(localStorage.getItem(KEDEN_NOTIFICATIONS_KEY) || '[]'));
+} catch {}
+
 document.querySelector('#shareMonitorBtn')?.addEventListener('click', async () => {
   const share = { title: 'KEDEN44 — монитор статусов ДТ', text: 'Монитор статусов деклараций KEDEN44', url: 'https://keden44.com/monitor/' };
   try {
