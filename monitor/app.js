@@ -149,6 +149,14 @@ import { createTelegramClient } from './modules/telegram/client.js';
           const delivered = Date.parse(item.deliveredAt || '');
           const checked = Date.parse(record.checkedAt || '');
           const isNew = !Number.isNaN(delivered) && !Number.isNaN(checked) && delivered > checked;
+          const notificationText = String(item.text || '');
+          if (/\bДТ\s+\d{5}\/\d{6}\/\d{7}\s+условно выпущен[ао]?/i.test(notificationText)) {
+            record.status = 'Условно выпущена';
+            if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
+          } else if (/\bДТ\s+\d{5}\/\d{6}\/\d{7}\s+выпущен[ао]?/i.test(notificationText)) {
+            record.status = 'Выпущена';
+            if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
+          }
           if (isNew) {
             record.changed = true;
             record.updatedAt = new Date().toISOString();
@@ -156,7 +164,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
             changedCount++;
           }
           const time = Number.isNaN(delivered) ? now() : new Date(delivered).toLocaleString('ru-RU');
-          record.history = [...(record.history || []), `${time}: уведомление KEDEN: ${String(item.text || '').slice(0, 280)}`];
+          record.history = [...(record.history || []), `${time}: уведомление KEDEN: ${String(item.text || '')}`];
           recordsTouched = true;
         }
       }
@@ -296,7 +304,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const notifications = (record.history || []).filter(item => /уведомление KEDEN:/i.test(item)).reverse();
       els.notificationsTitle.textContent = 'Уведомления · ' + record.dtNumber;
       els.notificationsList.innerHTML = notifications.length
-        ? notifications.map(item => '<div class="notificationHistoryItem privateData">' + esc(item.replace(/^.*?уведомление KEDEN:\s*/i, '')) + '<small>' + esc(item.split(': уведомление KEDEN:')[0] || '') + '</small></div>').join('')
+        ? notifications.map(item => {
+          const text = item.replace(/^.*?уведомление KEDEN:\s*/i, '');
+          const time = item.split(': уведомление KEDEN:')[0] || '';
+          return '<div class="notificationHistoryItem privateData"><strong>' + esc(kedenEventTitle(text)) + '</strong><span>' + esc(text) + '</span><small>' + esc(time) + '</small></div>';
+        }).join('')
         : '<p class="emptyNotifications">Сохранённых уведомлений пока нет.</p>';
       if (typeof els.notificationsDialog.showModal === 'function') els.notificationsDialog.showModal();
       else els.notificationsDialog.setAttribute('open', '');
@@ -969,6 +981,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
           qrId: match[1],
           dtNumber: record.dtNumber,
           name: record.name,
+          declarant: record.declarant,
+          transport: record.transport,
+          goods: record.goods,
           workMinutes: settings.workMinutes,
           releasedHours: settings.releasedHours,
           notifyReleased: settings.notifyReleased,
