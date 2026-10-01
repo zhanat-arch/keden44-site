@@ -1088,6 +1088,34 @@ import { createTelegramClient } from './modules/telegram/client.js';
       pdfImportQueue.add(pdfFiles);
     }
 
+    async function importSharedPdfsFromUrl() {
+      const params = new URLSearchParams(location.search);
+      if (params.get('share-error') === 'pdf') {
+        history.replaceState({}, '', location.pathname + location.hash);
+        els.line.textContent = 'Через «Поделиться» не получен PDF-файл';
+        return;
+      }
+      const ids = String(params.get('shared') || '').split(',').filter(Boolean);
+      if (!ids.length) return;
+      history.replaceState({}, '', location.pathname + location.hash);
+      const files = [];
+      for (const id of ids) {
+        try {
+          const response = await fetch('./shared-pdf/' + encodeURIComponent(id));
+          if (!response.ok) continue;
+          const encodedName = response.headers.get('X-KEDEN44-Filename') || 'document.pdf';
+          const name = decodeURIComponent(encodedName);
+          files.push(new File([await response.blob()], name, { type: 'application/pdf' }));
+        } catch {}
+      }
+      if (files.length) {
+        els.line.textContent = 'PDF получен через «Поделиться». Начинаю импорт...';
+        queuePdfFiles(files);
+      } else {
+        els.line.textContent = 'Не удалось получить PDF через «Поделиться». Выберите файл вручную';
+      }
+    }
+
     els.addBtn.addEventListener('click', () => { els.addBtn.closest('details')?.removeAttribute('open'); openForm(); });
     els.importPdfBtn.addEventListener('click', () => els.pdfInput.click());
     els.pdfInput.addEventListener('change', e => queuePdfFiles(e.target.files));
@@ -1176,6 +1204,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     saveRecords();
     render();
     if (transferMessage) els.line.textContent = transferMessage;
+    importSharedPdfsFromUrl();
     setTimeout(() => { checkDue(true); checkConditionalReminders(); }, 5000);
     setInterval(() => { checkDue(true); checkConditionalReminders(); }, 60000);
   })();
