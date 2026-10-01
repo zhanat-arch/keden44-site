@@ -108,9 +108,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function applyKedenNotifications(items = []) {
       let changedCount = 0;
       let recordsTouched = false;
+      const notificationItems = [...(Array.isArray(items) ? items : [])].sort((left, right) => Date.parse(left.deliveredAt || 0) - Date.parse(right.deliveredAt || 0));
       const latestByNumber = new Map();
       const latestItemByNumber = new Map();
-      for (const item of Array.isArray(items) ? items : []) {
+      for (const item of notificationItems) {
         const delivered = Date.parse(item.deliveredAt || '');
         if (Number.isNaN(delivered)) continue;
         for (const dtNumber of item.dtNumbers || []) {
@@ -136,7 +137,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
           recordsTouched = true;
         }
       }
-      for (const item of Array.isArray(items) ? items : []) {
+      for (const item of notificationItems) {
         for (const dtNumber of item.dtNumbers || []) {
           const baseNumber = declarationNumberParts(dtNumber).baseNumber;
           const record = records.find(candidate => declarationNumberParts(candidate.dtNumber).baseNumber === baseNumber);
@@ -338,7 +339,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       ].filter(([, value]) => value).map(([key, value]) => '<div><span>' + key + ':</span> ' + (['Последняя проверка', 'Следующая проверка'].includes(key) ? esc(value) : privateHtml(value)) + '</div>').join('');
       const info = conditionalInfo(record);
       const deadlineHtml = info ? '<div class="conditionalDeadline"><b>Контроль до ' + info.deadline.toLocaleDateString('ru-RU') + '</b><span>' + (info.remaining < 0 ? 'Просрочено: не очищено в срок · ' + Math.abs(info.remaining) + ' дн.' : info.remaining === 0 ? 'Срок сегодня' : 'Осталось ' + info.remaining + ' дн.') + '</span></div>' : '';
-      const history = (record.history || []).slice(-3).map(item => '<div class="privateData">' + esc(item) + '</div>').join('');
+      const history = (record.history || []).slice(-3).reverse().map(item => '<div class="privateData">' + esc(item) + '</div>').join('');
       const logBoxHtml = record.logs && record.logs.length ? '<div class="logBox privateData">' + record.logs.slice(-8).map(esc).join('\n') + '</div>' : '';
       const qrPreviewHtml = record.qrImageDataUrl ? '<div class="qrPreview"><img class="privateData" src="' + esc(record.qrImageDataUrl) + '" alt="QR"><span>QR извлечён из PDF и прочитан</span></div>' : '';
       const detailsHtml = '<details class="cardDetails"><summary>Подробнее</summary><div class="detailsBody"><div class="meta">' + detailsMeta + '</div>' + qrPreviewHtml + logBoxHtml + '<div class="hist">' + history + '</div></div></details>';
