@@ -1,7 +1,3 @@
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('./service-worker.js').catch(() => {});
-}
-
 let installPrompt;
 const installButton = document.querySelector('#installBtn');
 const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
