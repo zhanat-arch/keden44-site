@@ -47,6 +47,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const corrections = [];
 
       for (const item of items) {
+        if (item.status === 'Нужна проверка' && item.kedenUrl
+          && !(item.logs || []).some(line => /KEDEN проверен|Проверка KEDEN/i.test(line))) {
+          item.checkedAt = '';
+          item.lastChecked = '';
+        }
         const number = declarationNumberParts(item.dtNumber);
         if (number.isCorrection) corrections.push({ item, number });
         else {
@@ -87,7 +92,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
         return defaults;
       }
     }
-    function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(records)); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
+    function persistentRecords() { return records.filter(record => !record.transientDuplicate); }
+    function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
     function importTransferFromUrl() {
       const params = new URLSearchParams(location.search);
@@ -249,7 +255,17 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const archiveLabel = record.archived ? 'Вернуть' : 'В архив';
       const node = document.createElement('article');
       node.className = 'card';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges"><span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span>' + (record.changed ? '<span class="changeFlag">Новое изменение</span>' : '') + '</div></div>' + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + deadlineHtml + detailsHtml + '<div class="cardActions"><button data-action="open">KEDEN</button>' + previewButton + extendButton + letterButton + '<button data-action="check">Проверить</button><button data-action="edit">Править</button><button data-action="clear">Принято</button><button data-action="archive">' + archiveLabel + '</button><button data-action="delete">Удалить</button></div>';
+      const actionsHtml = record.transientDuplicate
+        ? '<button data-action="dismiss">Убрать копию</button>'
+        : '<button data-action="open">KEDEN</button>' + previewButton + extendButton + letterButton + '<button data-action="check">Проверить</button><button data-action="edit">Править</button><button data-action="clear">Принято</button><button data-action="archive">' + archiveLabel + '</button><button data-action="delete">Удалить</button>';
+      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges"><span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span>' + (record.changed ? '<span class="changeFlag">Новое изменение</span>' : '') + '</div></div>' + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + deadlineHtml + detailsHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      if (record.transientDuplicate) {
+        node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
+          records = records.filter(item => item.id !== record.id);
+          render();
+        });
+        return node;
+      }
       node.querySelector('[data-action="open"]').addEventListener('click', () => { if (record.kedenUrl) window.open(record.kedenUrl, '_blank'); else els.line.textContent = 'Нет ссылки KEDEN'; });
       node.querySelector('[data-action="preview"]')?.addEventListener('click', () => openFirstPage(record));
       node.querySelector('[data-action="extend"]')?.addEventListener('click', () => openExtensionForm(record));
@@ -500,8 +516,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
         logs,
         changed: false,
         archived: false,
-        lastChecked: now(),
-        checkedAt: new Date().toISOString(),
+        lastChecked: '',
+        checkedAt: '',
         updatedAt: new Date().toISOString(),
         history: [now() + ': импорт PDF' + (data.qrUrl ? ', QR найден' : ', QR не найден')]
       };
@@ -510,6 +526,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         ? records.find(record => declarationNumberParts(record.dtNumber).baseNumber === dtNumber)
         : null;
       let previewRecordId = importedRecord.id;
+      let duplicateImport = false;
 
       if (number.isCorrection) {
         if (existing && existing.kedenUrl && !existing.requiresMainDt) {
@@ -552,21 +569,39 @@ import { createTelegramClient } from './modules/telegram/client.js';
         els.line.textContent = 'Основная ДТ загружена, QR КДТ заменён';
       } else if (existing) {
         previewRecordId = existing.id;
-        const previousHistory = existing.history || [];
-        const knownCorrections = existing.corrections || [];
-        Object.assign(existing, importedRecord, {
-          id: existing.id,
-          corrections: knownCorrections,
-          history: [...previousHistory, now() + ': основной PDF загружен повторно']
+        duplicateImport = true;
+        const duplicateId = crypto.randomUUID();
+        records.unshift({
+          ...importedRecord,
+          id: duplicateId,
+          status: 'Повтор ДТ',
+          kedenUrl: '',
+          qrImageDataUrl: '',
+          hasFirstPagePreview: false,
+          transientDuplicate: true,
+          description: `Оригинал уже есть в мониторе. Его текущий статус: ${existing.status || 'не определён'}. Эта копия исчезнет через 5 минут.`,
+          history: [now() + ': повторная загрузка, оригинал не изменён'],
         });
-        els.line.textContent = 'Основная ДТ обновлена';
+        setTimeout(() => {
+          records = records.filter(record => record.id !== duplicateId);
+          render();
+        }, 5 * 60 * 1000);
+        els.line.textContent = `Эта ДТ уже есть. Текущий статус: ${existing.status || 'не определён'}`;
       } else {
         records.unshift(importedRecord);
         els.line.textContent = data.qrUrl ? 'PDF импортирован, QR найден' : 'PDF импортирован, QR не найден';
       }
-      if (firstPagePreview) await saveFirstPagePreview(previewRecordId, firstPagePreview);
+      if (firstPagePreview && !duplicateImport) await saveFirstPagePreview(previewRecordId, firstPagePreview);
       saveRecords();
       render();
+      const savedRecord = records.find(record => record.id === previewRecordId);
+      if (!duplicateImport && savedRecord?.kedenUrl && !savedRecord.requiresMainDt) {
+        els.line.textContent = 'QR найден. Сразу проверяю статус в KEDEN...';
+        await check(savedRecord.id);
+      }
+      finalImportMessage = duplicateImport
+        ? `Эта ДТ уже есть. Текущий статус: ${savedRecord?.status || 'не определён'}`
+        : (savedRecord?.status ? `ДТ добавлена. Статус: ${savedRecord.status}` : 'ДТ добавлена');
       console.info('DT import logs', logs);
       return true;
     }
@@ -729,7 +764,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function mergeCloudRecords(remoteRecords = []) {
       const merged = new Map();
       const keyOf = record => declarationNumberParts(record?.dtNumber || '').baseNumber || record?.id;
-      for (const record of [...records, ...remoteRecords]) {
+      for (const record of [...persistentRecords(), ...remoteRecords]) {
         if (!record || typeof record !== 'object') continue;
         const key = keyOf(record);
         if (!key) continue;
@@ -754,7 +789,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     }
     async function pushCloud() {
       if (!googleConnected || !googleCloudLoaded) return;
-      await telegram.cloudPush(records, settings);
+      await telegram.cloudPush(persistentRecords(), settings);
     }
     function scheduleCloudSync() {
       if (!googleConnected || !googleCloudLoaded) return;
@@ -896,6 +931,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       }
     }
 
+    let finalImportMessage = '';
     const pdfImportQueue = createImportQueue({
       process: importPdf,
       onProgress(state) {
@@ -905,8 +941,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
         if (state.stage === 'running' && !state.current) els.line.textContent = 'Обработано PDF: ' + state.completed + ' из ' + state.total;
         if (state.stage === 'done') {
           const successful = state.total - state.failed;
-          els.line.textContent = 'Импорт завершён: успешно ' + successful + ' из ' + state.total
-            + (state.failed ? '. Ошибки: ' + state.errors.join(', ') : '');
+          els.line.textContent = state.total === 1 && !state.failed && finalImportMessage
+            ? finalImportMessage
+            : 'Импорт завершён: успешно ' + successful + ' из ' + state.total
+              + (state.failed ? '. Ошибки: ' + state.errors.join(', ') : '');
+          finalImportMessage = '';
           els.pdfInput.value = '';
         }
       }
