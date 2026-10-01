@@ -12,10 +12,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
 (() => {
     const KEY = 'dt-board-records-v6';
     const SETTINGS_KEY = 'dt-board-settings-v1';
+    const TEST_PRESET_VERSION = 1;
     const GOOGLE_CLIENT_ID = '57476430330-a9mvuo5sh4gec820jtd1u5ldcgrm8tpn.apps.googleusercontent.com';
     const $ = (selector) => document.querySelector(selector);
     const els = {
-      addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), googleSignIn: $('#googleSignIn'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
+      addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), googleSignIn: $('#googleSignIn'), googleSetupState: $('#googleSetupState'), telegramSetupState: $('#telegramSetupState'), serverSetupState: $('#serverSetupState'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
       searchInput: $('#searchInput'), declarantBinFilter: $('#declarantBinFilter'), scopeSelect: $('#scopeSelect'), releasePeriod: $('#releasePeriod'), resetFiltersBtn: $('#resetFiltersBtn'), workInterval: $('#workInterval'), releasedInterval: $('#releasedInterval'), recentDays: $('#recentDays'), conditionalDays: $('#conditionalDays'), checkDueBtn: $('#checkDueBtn'), line: $('#line'), summary: $('#summary'),
       notifyReleased: $('#notifyReleased'), notifyStatusChanges: $('#notifyStatusChanges'), notifyDataChanges: $('#notifyDataChanges'), notifyProblems: $('#notifyProblems'), notifyConditional: $('#notifyConditional'),
       showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'),
@@ -39,6 +40,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
     let cloudSyncTimer;
     let googleConnected = false;
     let googleCloudLoaded = false;
+    let telegramConnected = false;
+    let serverWatchCount = 0;
 
     function loadRecords() { try { const saved = store && store.getItem(KEY); return saved ? JSON.parse(saved) : seed; } catch { return seed; } }
     function normalizeStoredRecords(items) {
@@ -84,10 +87,16 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return output;
     }
     function loadSettings() {
-      const defaults = { workMinutes: 15, releasedHours: 6, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: false, notifyDataChanges: false, notifyProblems: true, notifyConditional: true, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false };
+      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, testPresetVersion: TEST_PRESET_VERSION };
       try {
         const saved = store && store.getItem(SETTINGS_KEY);
-        return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+        if (!saved) return defaults;
+        const parsed = JSON.parse(saved);
+        const merged = { ...defaults, ...parsed };
+        if (Number(parsed.testPresetVersion || 0) >= TEST_PRESET_VERSION) return merged;
+        const migrated = { ...merged, workMinutes: 5, releasedHours: 1, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, testPresetVersion: TEST_PRESET_VERSION };
+        store?.setItem(SETTINGS_KEY, JSON.stringify(migrated));
+        return migrated;
       } catch {
         return defaults;
       }
@@ -788,6 +797,18 @@ import { createTelegramClient } from './modules/telegram/client.js';
       status.textContent = 'Синхронизация: ' + (profile?.email || 'Google подключён');
       status.title = 'Записи этого монитора синхронизируются между вашими устройствами';
       els.googleSignIn.append(status);
+      updateBackgroundSetup();
+    }
+    function updateBackgroundSetup() {
+      const setState = (element, state, text) => {
+        if (!element) return;
+        element.dataset.state = state;
+        element.textContent = text;
+      };
+      setState(els.googleSetupState, googleConnected ? 'ready' : 'pending', googleConnected ? 'Google: подключён' : 'Google: не подключён');
+      setState(els.telegramSetupState, telegramConnected ? 'ready' : 'pending', telegramConnected ? 'Telegram: подключён' : 'Telegram: не подключён');
+      const ready = googleConnected && telegramConnected;
+      setState(els.serverSetupState, ready ? 'ready' : 'pending', ready ? `Сервер: работает · ДТ: ${serverWatchCount}` : 'Сервер: ожидает Google и Telegram');
     }
     function mergeCloudRecords(remoteRecords = []) {
       const merged = new Map();
@@ -807,6 +828,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
       mergeCloudRecords(Array.isArray(cloud.records) ? cloud.records : []);
       if (cloud.settings && typeof cloud.settings === 'object' && Object.keys(cloud.settings).length) {
         settings = { ...settings, ...cloud.settings };
+        if (Number(cloud.settings.testPresetVersion || 0) < TEST_PRESET_VERSION) {
+          settings = { ...settings, workMinutes: 5, releasedHours: 1, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, testPresetVersion: TEST_PRESET_VERSION };
+        }
         try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
         applySettings();
       }
@@ -831,6 +855,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         googleCloudLoaded = false;
         renderGoogleProfile(result.profile);
         await pullCloudAndMerge();
+        if (telegramConnected) await syncTelegramWatches();
       } catch (error) {
         els.line.textContent = 'Вход Google не выполнен: ' + error.message;
       }
@@ -848,6 +873,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
     async function refreshTelegramStatus() {
       try {
         const result = await telegram.connection();
+        telegramConnected = Boolean(result.linked);
+        serverWatchCount = Number(result.watchCount || 0);
         els.telegramBtn.textContent = result.linked ? 'Telegram подключён' : 'Подключить Telegram';
         els.telegramBtn.classList.toggle('connected', Boolean(result.linked));
         els.telegramStatus.textContent = result.linked
@@ -858,10 +885,14 @@ import { createTelegramClient } from './modules/telegram/client.js';
           renderGoogleProfile(result.google);
           if (!googleCloudLoaded) await pullCloudAndMerge();
         }
+        updateBackgroundSetup();
         return result.linked;
       } catch {
+        telegramConnected = false;
+        serverWatchCount = 0;
         els.telegramBtn.textContent = 'Подключить Telegram';
         els.telegramStatus.textContent = 'Telegram: сервис временно недоступен';
+        updateBackgroundSetup();
         return false;
       }
     }
@@ -887,12 +918,19 @@ import { createTelegramClient } from './modules/telegram/client.js';
       } catch { return null; }
     }
     async function syncTelegramWatches() {
+      if (!googleConnected || !telegramConnected) {
+        updateBackgroundSetup();
+        return { ok: true, skipped: true, watchCount: 0 };
+      }
       const watches = records.map(watchFromRecord).filter(Boolean);
       const result = await telegram.sync(watches);
-      if (!result.skipped && els.telegramStatus) els.telegramStatus.textContent = `Telegram: фоновое наблюдение · ДТ: ${result.watchCount}`;
+      serverWatchCount = Number(result.watchCount || 0);
+      if (!result.skipped && els.telegramStatus) els.telegramStatus.textContent = `Telegram: фоновое наблюдение · ДТ: ${serverWatchCount}`;
+      updateBackgroundSetup();
       return result;
     }
     function scheduleTelegramSync() {
+      if (!googleConnected || !telegramConnected) return;
       clearTimeout(telegramSyncTimer);
       telegramSyncTimer = setTimeout(() => syncTelegramWatches().catch(() => {}), 800);
     }
@@ -1066,8 +1104,14 @@ import { createTelegramClient } from './modules/telegram/client.js';
     window.KEDEN44_MONITOR = Object.freeze({ applyNotifications: applyKedenNotifications });
     const transferMessage = importTransferFromUrl();
     applySettings();
+    updateBackgroundSetup();
     initializeGoogleSignIn();
     refreshTelegramStatus().then(linked => { if (linked) syncTelegramWatches().catch(() => {}); });
+    setInterval(async () => {
+      const wasConnected = telegramConnected;
+      const linked = await refreshTelegramStatus();
+      if (linked && !wasConnected && googleConnected) syncTelegramWatches().catch(() => {});
+    }, 30000);
     saveRecords();
     render();
     if (transferMessage) els.line.textContent = transferMessage;
