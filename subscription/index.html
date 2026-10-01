@@ -8,6 +8,7 @@
   <link rel="icon" href="/assets/keden44-mark.png">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/subscription.css">
+  <link rel="stylesheet" href="/subscription-flow.css">
 </head>
 <body>
   <header class="site-header"><a class="brand" href="/"><img src="/assets/keden44-mark.png" alt="" width="38" height="38"><span>KEDEN44</span></a><nav><a href="/extension/">Расширение</a><a href="/monitor/">Монитор</a><a href="/guide.html">Инструкция</a></nav></header>
@@ -27,7 +28,22 @@
       <ul><li>прикрепление документов графы 44;</li><li>оптимизация и разделение больших PDF;</li><li>Монитор статусов ДТ и условных выпусков;</li><li>уведомления и последующие обновления продукта.</li></ul>
       <p class="fine-print">После оплаты сохраните подтверждение Boosty. Подписка и доступ учитываются системой KEDEN44 независимо от платёжной площадки; до окончания открытого тестирования оплата не ограничивает доступ.</p>
     </section>
+    <section class="payment-check" aria-labelledby="payment-check-title">
+      <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p>Нажмите один раз. Мы сами будем проверять поступление, повторно нажимать не нужно.</p></div>
+      <div class="payment-flow">
+        <button id="paidBtn" class="button primary" type="button">Я оплатил</button>
+        <p id="paymentStatus" class="payment-status" role="status">Проверка ещё не запускалась.</p>
+        <button id="showPaymentDetails" class="button secondary" type="button" hidden>Указать данные платежа</button>
+        <form id="paymentDetails" class="payment-details" hidden>
+          <label>Точное время оплаты<input name="paidAt" type="datetime-local" required></label>
+          <label>Последние 4 цифры карты<input name="cardLast4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required></label>
+          <p>Полный номер карты, срок действия, CVV и банковскую выписку не отправляйте.</p>
+          <button class="button primary" type="submit">Активировать с проверкой</button>
+        </form>
+      </div>
+    </section>
   </main>
-  <footer><div><strong>KEDEN44</strong><span>Независимый сервис, не являющийся частью KEDEN или КГД РК.</span></div><div class="footer-links"><a href="/privacy.html">Конфиденциальность</a><a href="https://boosty.to/zhanat-arch" target="_blank" rel="noreferrer">Boosty</a></div></footer>
+  <footer><div><strong>KEDEN44</strong><span>Независимый сервис, не являющийся частью KEDEN или КГД РК.</span></div><div class="footer-links"><a href="/privacy.html">Конфиденциальность</a><a href="/support/">Поддержать проект</a></div></footer>
+  <script type="module" src="/subscription.js"></script>
 </body>
 </html>

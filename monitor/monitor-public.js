@@ -2,10 +2,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./service-worker.js').catch(() => {});
 }
 
-const mobileLayout = matchMedia('(max-width: 720px)');
-if (mobileLayout.matches) {
-  document.querySelectorAll('.compactControls').forEach(panel => panel.removeAttribute('open'));
-}
+document.querySelectorAll('.compactControls').forEach(panel => panel.removeAttribute('open'));
 
 document.querySelector('#shareMonitorBtn')?.addEventListener('click', async () => {
   const share = { title: 'KEDEN44 — монитор статусов ДТ', text: 'Монитор статусов деклараций KEDEN44', url: 'https://keden44.com/monitor/' };
