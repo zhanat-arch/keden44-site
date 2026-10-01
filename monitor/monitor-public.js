@@ -37,15 +37,56 @@ window.addEventListener('appinstalled', () => {
 document.querySelectorAll('.compactControls').forEach(panel => panel.removeAttribute('open'));
 
 let tooltipTimer;
+let tooltipHideTimer;
 let longPressedControl;
+const floatingTooltip = document.createElement('div');
+floatingTooltip.className = 'floatingTooltip';
+floatingTooltip.setAttribute('role', 'tooltip');
+document.body.appendChild(floatingTooltip);
+
+function hideTooltip() {
+  clearTimeout(tooltipHideTimer);
+  floatingTooltip.classList.remove('isVisible');
+}
+
+function showTooltip(control, duration = 0) {
+  const text = control?.dataset.tooltip;
+  if (!text) return;
+  clearTimeout(tooltipHideTimer);
+  floatingTooltip.textContent = text;
+  floatingTooltip.classList.add('isVisible');
+  const controlRect = control.getBoundingClientRect();
+  const tooltipRect = floatingTooltip.getBoundingClientRect();
+  const gap = 8;
+  const left = Math.min(
+    window.innerWidth - tooltipRect.width - gap,
+    Math.max(gap, controlRect.left + controlRect.width / 2 - tooltipRect.width / 2)
+  );
+  const above = controlRect.top - tooltipRect.height - gap;
+  const top = above >= gap ? above : Math.min(window.innerHeight - tooltipRect.height - gap, controlRect.bottom + gap);
+  floatingTooltip.style.left = `${left}px`;
+  floatingTooltip.style.top = `${Math.max(gap, top)}px`;
+  if (duration) tooltipHideTimer = setTimeout(hideTooltip, duration);
+}
+
+document.addEventListener('pointerover', event => {
+  if (event.pointerType === 'touch') return;
+  const control = event.target.closest('[data-tooltip]');
+  if (control) showTooltip(control);
+});
+document.addEventListener('pointerout', event => {
+  const control = event.target.closest('[data-tooltip]');
+  if (control && !control.contains(event.relatedTarget)) hideTooltip();
+});
+document.addEventListener('focusin', event => showTooltip(event.target.closest('[data-tooltip]')));
+document.addEventListener('focusout', hideTooltip);
 document.addEventListener('pointerdown', event => {
   const control = event.target.closest('[data-tooltip]');
   if (!control) return;
   clearTimeout(tooltipTimer);
   tooltipTimer = setTimeout(() => {
     longPressedControl = control;
-    control.classList.add('showTooltip');
-    setTimeout(() => control.classList.remove('showTooltip'), 1800);
+    showTooltip(control, 1800);
   }, 550);
 });
 for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
@@ -61,6 +102,17 @@ document.addEventListener('click', event => {
   }
   event.target.closest('.cardMenuPopover')?.closest('.cardMenu')?.removeAttribute('open');
 }, true);
+window.addEventListener('scroll', hideTooltip, true);
+window.addEventListener('resize', hideTooltip);
+
+document.addEventListener('click', event => {
+  const dialog = event.target.closest('dialog[open]');
+  if (!dialog || event.target !== dialog) return;
+  const rect = dialog.getBoundingClientRect();
+  const outsideContent = event.clientX < rect.left || event.clientX > rect.right
+    || event.clientY < rect.top || event.clientY > rect.bottom;
+  if (outsideContent) dialog.close();
+});
 
 const KEDEN_NOTIFICATIONS_KEY = 'keden44-keden-notifications';
 const KEDEN_HEALTH_KEY = 'keden44-keden-notification-health';
