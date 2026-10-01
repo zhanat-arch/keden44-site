@@ -276,7 +276,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
           : sortWithShipmentGroups(items, record => new Date(record.updatedAt || 0).getTime());
       orderedItems.forEach(record => {
         const node = card(record);
-        node.querySelector('[data-action="clear"]').hidden = !record.changed;
+        const clearButton = node.querySelector('[data-action="clear"]');
+        if (clearButton) clearButton.hidden = !record.changed;
         container.appendChild(node);
       });
     }
@@ -359,9 +360,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const logBoxHtml = record.logs && record.logs.length ? '<div class="logBox privateData">' + record.logs.slice(-8).map(esc).join('\n') + '</div>' : '';
       const qrPreviewHtml = record.qrImageDataUrl ? '<div class="qrPreview"><img class="privateData" src="' + esc(record.qrImageDataUrl) + '" alt="QR"><span>QR извлечён из PDF и прочитан</span></div>' : '';
       const detailsHtml = '<details class="cardDetails"><summary>Подробнее</summary><div class="detailsBody"><div class="meta">' + detailsMeta + '</div>' + qrPreviewHtml + logBoxHtml + '<div class="hist">' + history + '</div></div></details>';
-      const previewButton = record.hasFirstPagePreview ? '<button data-action="preview">1-я страница PDF</button>' : '';
+      const previewButton = record.hasFirstPagePreview ? '<button class="iconAction pdfAction" data-action="preview" data-tooltip="Открыть первую страницу PDF" aria-label="Открыть первую страницу PDF">PDF</button>' : '';
       const extendButton = isConditionalRelease(record.status) ? '<button data-action="extend">Продлить срок</button>' : '';
-      const letterButton = record.conditionalExtensionLetterName ? '<button data-action="letter">Письмо</button>' : '';
+      const letterButton = record.conditionalExtensionLetterName ? '<button data-action="letter">Открыть письмо</button>' : '';
       const archiveLabel = record.archived ? 'Вернуть' : 'В архив';
       const hasDocumentRequest = /дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(record.lastKedenNotification || '');
       const requestActions = hasDocumentRequest
@@ -369,9 +370,15 @@ import { createTelegramClient } from './modules/telegram/client.js';
         : '';
       const node = document.createElement('article');
       node.className = 'card';
+      const menuItems = requestActions + extendButton + letterButton
+        + '<button data-action="edit">Править</button><button data-action="archive">' + archiveLabel + '</button><button class="dangerAction" data-action="delete">Удалить</button>';
       const actionsHtml = record.transientDuplicate
         ? '<button data-action="dismiss">Убрать копию</button>'
-        : '<button data-action="open">KEDEN</button>' + previewButton + extendButton + letterButton + requestActions + '<button data-action="check">Проверить</button><button data-action="edit">Править</button><button data-action="clear">Принято</button><button data-action="archive">' + archiveLabel + '</button><button data-action="delete">Удалить</button>';
+        : '<button class="iconAction qrAction" data-action="open" data-tooltip="Открыть ДТ в KEDEN по QR" aria-label="Открыть ДТ в KEDEN по QR">▦</button>'
+          + previewButton
+          + '<button class="iconAction refreshAction" data-action="check" data-tooltip="Проверить статус сейчас" aria-label="Проверить статус сейчас">↻</button>'
+          + '<button class="iconAction acceptAction" data-action="clear" data-tooltip="Принять новое изменение" aria-label="Принять новое изменение">✓</button>'
+          + '<details class="cardMenu"><summary data-tooltip="Другие действия" aria-label="Другие действия">⋯</summary><div class="cardMenuPopover">' + menuItems + '</div></details>';
       const workflowText = record.requestWorkflow === 'progress' ? 'Собираем документы.' : record.requestWorkflow === 'done' ? 'Ответ отправлен.' : '';
       const conditionalRequestHint = isConditionalRelease(record.status) && hasDocumentRequest
         ? '<em>Возможно, это запрос сертификата. Приложите его, когда будет готов.</em>'
@@ -395,10 +402,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
       node.querySelector('[data-action="check"]').addEventListener('click', () => check(record.id));
       node.querySelector('[data-action="request-progress"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'progress'));
       node.querySelector('[data-action="request-done"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'done'));
-      node.querySelector('[data-action="edit"]').addEventListener('click', () => openForm(record));
-      node.querySelector('[data-action="clear"]').addEventListener('click', () => clearChanged(record.id));
-      node.querySelector('[data-action="archive"]').addEventListener('click', () => toggleArchive(record.id));
-      node.querySelector('[data-action="delete"]').addEventListener('click', () => deleteRecord(record.id));
+      node.querySelector('[data-action="edit"]')?.addEventListener('click', () => openForm(record));
+      node.querySelector('[data-action="clear"]')?.addEventListener('click', () => clearChanged(record.id));
+      node.querySelector('[data-action="archive"]')?.addEventListener('click', () => toggleArchive(record.id));
+      node.querySelector('[data-action="delete"]')?.addEventListener('click', () => deleteRecord(record.id));
       return node;
     }
 

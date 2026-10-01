@@ -36,6 +36,32 @@ window.addEventListener('appinstalled', () => {
 
 document.querySelectorAll('.compactControls').forEach(panel => panel.removeAttribute('open'));
 
+let tooltipTimer;
+let longPressedControl;
+document.addEventListener('pointerdown', event => {
+  const control = event.target.closest('[data-tooltip]');
+  if (!control) return;
+  clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(() => {
+    longPressedControl = control;
+    control.classList.add('showTooltip');
+    setTimeout(() => control.classList.remove('showTooltip'), 1800);
+  }, 550);
+});
+for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
+  document.addEventListener(eventName, () => clearTimeout(tooltipTimer), true);
+}
+document.addEventListener('click', event => {
+  const control = event.target.closest('[data-tooltip]');
+  if (control && control === longPressedControl) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    longPressedControl = undefined;
+    return;
+  }
+  event.target.closest('.cardMenuPopover')?.closest('.cardMenu')?.removeAttribute('open');
+}, true);
+
 const KEDEN_NOTIFICATIONS_KEY = 'keden44-keden-notifications';
 const KEDEN_HEALTH_KEY = 'keden44-keden-notification-health';
 function applyKedenNotifications(items, attempt = 0) {
