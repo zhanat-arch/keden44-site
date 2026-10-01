@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "access": {
     "mode": "open_test",
     "title": "Бесплатное тестирование до 31 октября 2026",
@@ -8,6 +8,7 @@
   },
   "links": {
     "monitor": "https://keden44.com/monitor/",
+    "guide": "https://keden44.com/guide.html",
     "subscription": "https://keden44.com/subscription/",
     "purchase": "https://boosty.to/zhanat-arch/purchase/4117186?ssource=DIRECT&share=subscription_link"
   },
