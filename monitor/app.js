@@ -106,6 +106,24 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
     function applyKedenNotifications(items = []) {
       let changedCount = 0;
+      let recordsTouched = false;
+      const latestByNumber = new Map();
+      for (const item of Array.isArray(items) ? items : []) {
+        const delivered = Date.parse(item.deliveredAt || '');
+        if (Number.isNaN(delivered)) continue;
+        for (const dtNumber of item.dtNumbers || []) {
+          const number = declarationNumberParts(dtNumber).baseNumber;
+          latestByNumber.set(number, Math.max(latestByNumber.get(number) || 0, delivered));
+        }
+      }
+      for (const record of records) {
+        const latest = latestByNumber.get(declarationNumberParts(record.dtNumber).baseNumber);
+        const checked = Date.parse(record.checkedAt || '');
+        if (record.lastKedenNotification && record.changed && latest && !Number.isNaN(checked) && latest <= checked) {
+          record.changed = false;
+          recordsTouched = true;
+        }
+      }
       for (const item of Array.isArray(items) ? items : []) {
         for (const dtNumber of item.dtNumbers || []) {
           const baseNumber = declarationNumberParts(dtNumber).baseNumber;
@@ -115,20 +133,25 @@ import { createTelegramClient } from './modules/telegram/client.js';
           if (known.has(item.id)) continue;
           known.add(item.id);
           record.kedenNotificationIds = [...known].slice(-100);
-          record.changed = true;
-          record.updatedAt = new Date().toISOString();
           record.lastKedenNotification = item.text;
           const delivered = Date.parse(item.deliveredAt || '');
+          const checked = Date.parse(record.checkedAt || '');
+          const isNew = !Number.isNaN(delivered) && !Number.isNaN(checked) && delivered > checked;
+          if (isNew) {
+            record.changed = true;
+            record.updatedAt = new Date().toISOString();
+            sendNotice(`Новое уведомление KEDEN: ${baseNumber}`, String(item.text || '').slice(0, 240), `keden:${item.id}`);
+            changedCount++;
+          }
           const time = Number.isNaN(delivered) ? now() : new Date(delivered).toLocaleString('ru-RU');
           record.history = [...(record.history || []), `${time}: уведомление KEDEN: ${String(item.text || '').slice(0, 280)}`];
-          sendNotice(`Новое уведомление KEDEN: ${baseNumber}`, String(item.text || '').slice(0, 240), `keden:${item.id}`);
-          changedCount++;
+          recordsTouched = true;
         }
       }
-      if (changedCount) {
+      if (recordsTouched) {
         saveRecords();
         render();
-        els.line.textContent = `Новых уведомлений KEDEN по ДТ: ${changedCount}`;
+        if (changedCount) els.line.textContent = `Новых уведомлений KEDEN по ДТ: ${changedCount}`;
       }
       return changedCount;
     }
