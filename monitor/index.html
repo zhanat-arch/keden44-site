@@ -6,6 +6,30 @@
   <meta name="theme-color" content="#2563eb" />
   <title>KEDEN44 Control - Монитор ДТ</title>
   <link rel="manifest" href="./manifest.webmanifest">
+  <script>
+    window.KEDEN44_RELEASE = '2026.10.01.19';
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      let reloadingForWorker = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloadingForWorker || sessionStorage.getItem('keden44-reloaded-release') === window.KEDEN44_RELEASE) return;
+        reloadingForWorker = true;
+        sessionStorage.setItem('keden44-reloaded-release', window.KEDEN44_RELEASE);
+        location.reload();
+      });
+      navigator.serviceWorker.register(`./service-worker.js?v=${window.KEDEN44_RELEASE}`, { updateViaCache: 'none' })
+        .then(registration => {
+          registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+          registration.addEventListener('updatefound', () => {
+            const worker = registration.installing;
+            worker?.addEventListener('statechange', () => {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) worker.postMessage({ type: 'SKIP_WAITING' });
+            });
+          });
+          registration.update().catch(() => {});
+        })
+        .catch(() => {});
+    }
+  </script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
     if (location.hostname === 'keden44.com' || location.hostname === 'www.keden44.com') {
@@ -22,7 +46,7 @@
   </script>
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./themes/responsive-board.css">
-  <link rel="stylesheet" href="./monitor-public.css?v=2">
+  <link rel="stylesheet" href="./monitor-public.css?v=3">
   <style>.logBox{display:none}</style>
 </head>
 <body>
@@ -46,8 +70,8 @@
   <script src="./pdf.min.js"></script>
   <script src="./pdf-lib.min.js"></script>
   <script src="./jsQR.js"></script>
-  <script type="module" src="./app.js?v=14"></script>
-  <script type="module" src="./monitor-public.js?v=3"></script>
+  <script type="module" src="./app.js?v=15"></script>
+  <script type="module" src="./monitor-public.js?v=4"></script>
 </body>
 </html>
 
