@@ -22,6 +22,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'),
       entryDialog: $('#entryDialog'), entryForm: $('#entryForm'), dialogTitle: $('#dialogTitle'), closeDialogBtn: $('#closeDialogBtn'), cancelBtn: $('#cancelBtn'),
       extensionDialog: $('#extensionDialog'), extensionForm: $('#extensionForm'), closeExtensionBtn: $('#closeExtensionBtn'), cancelExtensionBtn: $('#cancelExtensionBtn'),
+      notificationsDialog: $('#notificationsDialog'), notificationsTitle: $('#notificationsTitle'), notificationsList: $('#notificationsList'), closeNotificationsBtn: $('#closeNotificationsBtn'),
       changed: $('#changed'), work: $('#work'), conditional: $('#conditional'), released: $('#released'), archive: $('#archive'), archiveMoreBtn: $('#archiveMoreBtn'), cc: $('#cc'), cw: $('#cw'), ccond: $('#ccond'), cr: $('#cr'), ca: $('#ca')
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
@@ -108,17 +109,28 @@ import { createTelegramClient } from './modules/telegram/client.js';
       let changedCount = 0;
       let recordsTouched = false;
       const latestByNumber = new Map();
+      const latestItemByNumber = new Map();
       for (const item of Array.isArray(items) ? items : []) {
         const delivered = Date.parse(item.deliveredAt || '');
         if (Number.isNaN(delivered)) continue;
         for (const dtNumber of item.dtNumbers || []) {
           const number = declarationNumberParts(dtNumber).baseNumber;
           latestByNumber.set(number, Math.max(latestByNumber.get(number) || 0, delivered));
+          if (!latestItemByNumber.has(number) || delivered > latestItemByNumber.get(number).delivered) {
+            latestItemByNumber.set(number, { item, delivered });
+          }
         }
       }
       for (const record of records) {
-        const latest = latestByNumber.get(declarationNumberParts(record.dtNumber).baseNumber);
+        const number = declarationNumberParts(record.dtNumber).baseNumber;
+        const latest = latestByNumber.get(number);
+        const latestEntry = latestItemByNumber.get(number);
         const checked = Date.parse(record.checkedAt || '');
+        if (latestEntry && (record.lastKedenNotification !== latestEntry.item.text || record.lastKedenNotificationAt !== latestEntry.item.deliveredAt)) {
+          record.lastKedenNotification = String(latestEntry.item.text || 'Новое уведомление KEDEN');
+          record.lastKedenNotificationAt = latestEntry.item.deliveredAt || '';
+          recordsTouched = true;
+        }
         if (record.lastKedenNotification && record.changed && latest && !Number.isNaN(checked) && latest <= checked) {
           record.changed = false;
           recordsTouched = true;
@@ -133,7 +145,6 @@ import { createTelegramClient } from './modules/telegram/client.js';
           if (known.has(item.id)) continue;
           known.add(item.id);
           record.kedenNotificationIds = [...known].slice(-100);
-          record.lastKedenNotification = item.text;
           const delivered = Date.parse(item.deliveredAt || '');
           const checked = Date.parse(record.checkedAt || '');
           const isNew = !Number.isNaN(delivered) && !Number.isNaN(checked) && delivered > checked;
@@ -271,6 +282,28 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const number = splitDeclarationNumber(value || 'ДТ не указана');
       return esc(number.prefix) + (number.privateTail ? privateHtml(number.privateTail) : '') + esc(number.suffix);
     }
+    function kedenEventTitle(value = '') {
+      const text = String(value).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(text)) return 'Поступил дополнительный запрос';
+      if (/выпущен/i.test(text)) return 'ДТ выпущена';
+      if (/отозван/i.test(text)) return 'ДТ отозвана';
+      if (/завершен.*(?:контрол|проверк)/i.test(text)) return 'Контроль завершён';
+      if (/назначен.*контрол/i.test(text)) return 'Назначен таможенный контроль';
+      return text.length > 110 ? text.slice(0, 107) + '...' : text || 'Уведомление KEDEN';
+    }
+    function openRecordNotifications(record) {
+      const notifications = (record.history || []).filter(item => /уведомление KEDEN:/i.test(item)).reverse();
+      els.notificationsTitle.textContent = 'Уведомления · ' + record.dtNumber;
+      els.notificationsList.innerHTML = notifications.length
+        ? notifications.map(item => '<div class="notificationHistoryItem privateData">' + esc(item.replace(/^.*?уведомление KEDEN:\s*/i, '')) + '<small>' + esc(item.split(': уведомление KEDEN:')[0] || '') + '</small></div>').join('')
+        : '<p class="emptyNotifications">Сохранённых уведомлений пока нет.</p>';
+      if (typeof els.notificationsDialog.showModal === 'function') els.notificationsDialog.showModal();
+      else els.notificationsDialog.setAttribute('open', '');
+    }
+    function closeRecordNotifications() {
+      if (typeof els.notificationsDialog.close === 'function') els.notificationsDialog.close();
+      else els.notificationsDialog.removeAttribute('open');
+    }
     function card(record) {
       const pillClass = statusKind(record.status) === 'problem' || conditionalNeedsAttention(record) ? 'bad' : statusKind(record.status) === 'released' ? 'ok' : 'warn';
       const meta = [
@@ -318,7 +351,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const actionsHtml = record.transientDuplicate
         ? '<button data-action="dismiss">Убрать копию</button>'
         : '<button data-action="open">KEDEN</button>' + previewButton + extendButton + letterButton + '<button data-action="check">Проверить</button><button data-action="edit">Править</button><button data-action="clear">Принято</button><button data-action="archive">' + archiveLabel + '</button><button data-action="delete">Удалить</button>';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges"><span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span>' + (record.changed ? '<span class="changeFlag">Новое изменение</span>' : '') + '</div></div>' + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + deadlineHtml + detailsHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      const kedenEventHtml = record.lastKedenNotification
+        ? '<button class="kedenEvent' + (record.changed ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</span><small>Смотреть все уведомления</small></button>'
+        : '';
+      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges"><span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span></div></div>' + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + deadlineHtml + detailsHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
         node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
           records = records.filter(item => item.id !== record.id);
@@ -327,6 +363,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         return node;
       }
       node.querySelector('[data-action="open"]').addEventListener('click', () => { if (record.kedenUrl) window.open(record.kedenUrl, '_blank'); else els.line.textContent = 'Нет ссылки KEDEN'; });
+      node.querySelector('[data-action="notifications"]')?.addEventListener('click', () => openRecordNotifications(record));
       node.querySelector('[data-action="preview"]')?.addEventListener('click', () => openFirstPage(record));
       node.querySelector('[data-action="extend"]')?.addEventListener('click', () => openExtensionForm(record));
       node.querySelector('[data-action="letter"]')?.addEventListener('click', () => openSupportDocument(record));
@@ -1084,6 +1121,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     els.closeExtensionBtn.addEventListener('click', closeExtensionForm);
     els.cancelExtensionBtn.addEventListener('click', closeExtensionForm);
     els.extensionForm.addEventListener('submit', saveConditionalExtension);
+    els.closeNotificationsBtn.addEventListener('click', closeRecordNotifications);
     els.searchInput.addEventListener('input', e => { query = e.target.value; archiveVisibleCount = 20; render(); });
     els.declarantBinFilter.addEventListener('input', e => { declarantBinFilter = e.target.value.replace(/\D/g, ''); archiveVisibleCount = 20; render(); });
     els.scopeSelect.addEventListener('change', e => { scope = e.target.value; archiveVisibleCount = 20; render(); });
