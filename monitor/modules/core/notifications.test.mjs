@@ -63,17 +63,17 @@ test('reads assigned customs control and affected goods from a KEDEN notificatio
   assert.equal(controlAssignmentFromNotification('Поступил дополнительный запрос по ДТ'), null);
 });
 
-test('compacts duplicate controls without repeating the declaration or common date', () => {
+test('keeps a timestamp on every compact control line', () => {
   assert.deepEqual(summarizeControlAssignments([
     { date: '02.10.2026, 10:00:00', goods: '1', control: 'Досмотр', inspector: 'ИВАНОВ' },
     { date: '02.10.2026, 10:00:00', goods: '2', control: 'Досмотр', inspector: 'ИВАНОВ' },
     { date: '02.10.2026, 10:00:00', goods: '3', control: 'Контроль стоимости', inspector: 'ПЕТРОВ' }
   ]), {
-    date: '02.10.2026, 10:00:00',
+    date: '',
     lines: [
-      'товары 1: Досмотр · инспектор: ИВАНОВ',
-      'товары 2: Досмотр · инспектор: ИВАНОВ',
-      'товары 3: Контроль стоимости · инспектор: ПЕТРОВ'
+      '02.10.2026, 10:00:00 — товары 1: Досмотр · инспектор: ИВАНОВ',
+      '02.10.2026, 10:00:00 — товары 2: Досмотр · инспектор: ИВАНОВ',
+      '02.10.2026, 10:00:00 — товары 3: Контроль стоимости · инспектор: ПЕТРОВ'
     ]
   });
 });

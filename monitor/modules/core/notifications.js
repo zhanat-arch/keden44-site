@@ -36,7 +36,6 @@ export function controlAssignmentFromNotification(value = '') {
 }
 
 export function summarizeControlAssignments(items = []) {
-  const dates = [...new Set(items.map(item => String(item.date || '').trim()).filter(Boolean))];
   const groups = new Map();
   for (const item of items) {
     const control = String(item.control || '').trim();
@@ -49,9 +48,9 @@ export function summarizeControlAssignments(items = []) {
     groups.set(key, group);
   }
   return {
-    date: dates.length === 1 ? dates[0] : '',
+    date: '',
     lines: [...groups.values()].map(group => {
-      const date = dates.length > 1 && group.dates.size === 1 ? `${[...group.dates][0]} — ` : '';
+      const date = group.dates.size === 1 ? `${[...group.dates][0]} — ` : '';
       return `${date}товары ${group.goods || 'не указаны'}: ${group.control}${group.inspector ? ` · инспектор: ${group.inspector}` : ''}`;
     })
   };
