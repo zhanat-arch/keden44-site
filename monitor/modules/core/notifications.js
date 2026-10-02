@@ -35,6 +35,29 @@ export function controlAssignmentFromNotification(value = '') {
   return { goods: goods.slice(0, 120), control: control.slice(0, 300), inspector: inspector.slice(0, 180) };
 }
 
+export function summarizeControlAssignments(items = []) {
+  const dates = [...new Set(items.map(item => String(item.date || '').trim()).filter(Boolean))];
+  const groups = new Map();
+  for (const item of items) {
+    const control = String(item.control || '').trim();
+    if (!control) continue;
+    const inspector = String(item.inspector || '').trim();
+    const key = `${control}\u0000${inspector}`;
+    const group = groups.get(key) || { control, inspector, goods: new Set(), dates: new Set() };
+    if (item.goods) group.goods.add(String(item.goods).trim());
+    if (item.date) group.dates.add(String(item.date).trim());
+    groups.set(key, group);
+  }
+  return {
+    date: dates.length === 1 ? dates[0] : '',
+    lines: [...groups.values()].map(group => {
+      const date = dates.length > 1 && group.dates.size === 1 ? `${[...group.dates][0]} — ` : '';
+      const goods = [...group.goods].join(', ') || 'не указаны';
+      return `${date}товары ${goods}: ${group.control}${group.inspector ? ` · инспектор: ${group.inspector}` : ''}`;
+    })
+  };
+}
+
 export function notificationForChange(previous, next, changes, settings) {
   if (!changes.length) return null;
   const name = next.name || next.dtNumber || 'ДТ';

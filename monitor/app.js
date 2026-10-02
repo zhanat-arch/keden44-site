@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './modules/core/notifications.js';
+import { controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -202,12 +202,13 @@ import { createTelegramClient } from './modules/telegram/client.js';
         }
       }
       for (const [baseNumber, batch] of controlBatches) {
+        const summary = summarizeControlAssignments(batch.items);
         const context = [
+          summary.date ? `Дата: ${summary.date}` : '',
           batch.record.declarant ? `Декларант: ${batch.record.declarant}` : '',
           batch.record.goods ? `Первый товар: ${batch.record.goods}` : ''
         ].filter(Boolean);
-        const controls = batch.items.map(item => `${item.date ? item.date + ' — ' : ''}товары ${item.goods || 'не указаны'}: ${item.control}${item.inspector ? ` · инспектор: ${item.inspector}` : ''}`);
-        const body = [...context, ...controls].join('\n\n').slice(0, 3800);
+        const body = [...context, ...summary.lines].join('\n\n').slice(0, 3800);
         const latest = batch.items.at(-1);
         sendNotice(`KEDEN: ${baseNumber} — назначены контроли`, body, `keden-controls:${baseNumber}:${latest.id}:${batch.items.length}`);
       }

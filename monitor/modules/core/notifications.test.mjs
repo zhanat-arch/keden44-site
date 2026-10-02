@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './notifications.js';
+import { controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './notifications.js';
 
 test('sorts KEDEN notification dates written in Russian format', () => {
   const assigned = notificationTimestamp('30.09.2026, 14:33:52');
@@ -61,4 +61,18 @@ test('reads assigned customs control and affected goods from a KEDEN notificatio
     'В отношении товаров 1, 3 по ДТ 55302/300926/0086612, назначен следующий вид контроля Контроль таможенной стоимости (ГДУ). Исполнитель: ФИО УАЛИ'
   ), { goods: '1, 3', control: 'Контроль таможенной стоимости (ГДУ)', inspector: 'УАЛИ' });
   assert.equal(controlAssignmentFromNotification('Поступил дополнительный запрос по ДТ'), null);
+});
+
+test('compacts duplicate controls without repeating the declaration or common date', () => {
+  assert.deepEqual(summarizeControlAssignments([
+    { date: '02.10.2026, 10:00:00', goods: '1', control: 'Досмотр', inspector: 'ИВАНОВ' },
+    { date: '02.10.2026, 10:00:00', goods: '2', control: 'Досмотр', inspector: 'ИВАНОВ' },
+    { date: '02.10.2026, 10:00:00', goods: '3', control: 'Контроль стоимости', inspector: 'ПЕТРОВ' }
+  ]), {
+    date: '02.10.2026, 10:00:00',
+    lines: [
+      'товары 1, 2: Досмотр · инспектор: ИВАНОВ',
+      'товары 3: Контроль стоимости · инспектор: ПЕТРОВ'
+    ]
+  });
 });
