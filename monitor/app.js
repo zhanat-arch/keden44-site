@@ -115,6 +115,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function applyKedenNotifications(items = [], { share = true } = {}) {
       let changedCount = 0;
       let recordsTouched = false;
+      const freshByDeclaration = new Map();
       const notificationItems = [...(Array.isArray(items) ? items : [])].sort((left, right) => notificationTimestamp(left.deliveredAt) - notificationTimestamp(right.deliveredAt));
       const latestByNumber = new Map();
       const latestItemByNumber = new Map();
@@ -177,13 +178,30 @@ import { createTelegramClient } from './modules/telegram/client.js';
             record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
             record.changed = true;
             record.updatedAt = new Date().toISOString();
-            sendNotice(`Новое уведомление KEDEN: ${baseNumber}`, String(item.text || '').slice(0, 240), `keden:${item.id}`);
+            const fresh = freshByDeclaration.get(baseNumber) || { record, items: [] };
+            fresh.items.push(item);
+            freshByDeclaration.set(baseNumber, fresh);
             changedCount++;
           }
           const time = Number.isNaN(delivered) ? now() : new Date(delivered).toLocaleString('ru-RU');
           record.history = [...(record.history || []), `${time}: уведомление KEDEN: ${String(item.text || '')}`];
           recordsTouched = true;
         }
+      }
+      for (const [baseNumber, fresh] of freshByDeclaration) {
+        const sorted = fresh.items.sort((left, right) => notificationTimestamp(right.deliveredAt) - notificationTimestamp(left.deliveredAt));
+        const latest = sorted[0];
+        const context = [
+          fresh.record.declarant ? `Декларант: ${fresh.record.declarant}` : '',
+          fresh.record.goods ? `Первый товар: ${fresh.record.goods}` : ''
+        ].filter(Boolean);
+        const events = sorted.map(item => {
+          const timestamp = notificationTimestamp(item.deliveredAt);
+          const date = Number.isNaN(timestamp) ? '' : new Date(timestamp).toLocaleString('ru-RU');
+          return `${date ? date + ' — ' : ''}${kedenEventTitle(item.text)}\n${String(item.text || '').trim()}`;
+        });
+        const body = [...context, ...events].join('\n\n').slice(0, 3800);
+        sendNotice(`KEDEN: ${baseNumber} — ${kedenEventTitle(latest.text)}`, body, `keden-batch:${baseNumber}:${latest.id}:${sorted.length}`);
       }
       if (recordsTouched) {
         saveRecords();
