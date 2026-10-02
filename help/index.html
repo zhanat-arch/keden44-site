@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Помощь по расширению, Монитору ДТ, Telegram и подписке KEDEN44.">
+  <title>Помощь — KEDEN44</title>
+  <link rel="icon" href="/assets/keden44-mark.png">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/help/help.css">
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="/"><img src="/assets/keden44-mark.png" alt="" width="38" height="38"><span>KEDEN44</span></a><nav><a href="/guide.html">Инструкция</a><a href="/monitor/">Монитор</a><a href="/subscription/">Подписка</a></nav></header>
+  <main class="help-page">
+    <section class="help-intro">
+      <p class="eyebrow">Центр помощи</p>
+      <h1>Как можем помочь?</h1>
+      <p>KEDEN44 — независимый сервис. Здесь собраны ответы по расширению, Монитору, уведомлениям и доступу.</p>
+      <label class="help-search"><span>Поиск по вопросам</span><input id="faqSearch" type="search" placeholder="Например: PDF, Telegram или статус ДТ" autocomplete="off"></label>
+    </section>
+
+    <div class="help-layout">
+      <section class="faq" aria-labelledby="faqTitle">
+        <div class="section-title"><p class="eyebrow">FAQ</p><h2 id="faqTitle">Частые вопросы</h2></div>
+        <div id="faqList">
+          <details data-search="файлы pdf название графа 44 прикрепить документ"><summary>Как назвать и прикрепить файлы?</summary><p>Начните имя файла с пятизначного кода документа из графы 44. Если строк с таким кодом несколько, добавьте номер документа или его уникальную часть. Полная пошаговая схема есть в <a href="/guide.html">инструкции</a>.</p></details>
+          <details data-search="панель скрыть сдвиг окно кеден"><summary>Можно скрыть панель и продолжить работу?</summary><p>Да. Нажмите «Скрыть панель →». Расширение продолжит следить за доступными обновлениями, пока вкладка KEDEN открыта и пользователь остаётся в системе.</p></details>
+          <details data-search="монитор добавить дт pdf перетащить"><summary>Как добавить ДТ в Монитор?</summary><p>Нажмите «Передать в монитор» в расширении либо перетащите PDF декларации прямо в окно Монитора. Если ДТ уже есть, появится соответствующее сообщение без создания копии.</p></details>
+          <details data-search="telegram бот уведомления подключить"><summary>Как подключить уведомления Telegram?</summary><p>В Мониторе войдите через Google и нажмите «Подключить Telegram». Откроется бот с одноразовой ссылкой привязки. После подключения статус появится на всех синхронизированных устройствах.</p></details>
+          <details data-search="статус запрос выпуск условный уведомление"><summary>Почему статус и уведомление могут различаться?</summary><p>QR показывает основной статус ДТ, а запросы документов приходят через уведомления личного кабинета KEDEN. Для запросов оставьте авторизованную вкладку KEDEN открытой; выпуск продолжает проверяться отдельно.</p></details>
+          <details data-search="оплата подписка boosty доступ"><summary>Что делать после оплаты подписки?</summary><p>На странице подписки нажмите «Я оплатил» один раз. Если платёж не сопоставится автоматически, система попросит точное время и последние четыре цифры карты. Полный номер карты и банковскую выписку отправлять не нужно.</p></details>
+          <details data-search="ошибка не работает диагностика"><summary>Что приложить к сообщению об ошибке?</summary><p>Опишите, что нажали и что ожидали увидеть, укажите версию расширения и приложите скриншот без конфиденциальных данных компании. Номера ДТ, БИН и сведения о товарах можно закрыть.</p></details>
+        </div>
+        <p id="faqEmpty" class="faq-empty" hidden>По этому запросу ответа пока нет. Задайте вопрос помощнику.</p>
+      </section>
+
+      <aside class="assistant-panel" aria-labelledby="assistantTitle">
+        <p class="assistant-state"><span></span> Помощник KEDEN44</p>
+        <h2 id="assistantTitle">Задайте вопрос</h2>
+        <p>Обычные вопросы копятся в очереди: один вопрос в сутки. Если работа полностью остановилась, можно отправить один срочный вопрос в неделю — бот сразу перешлёт его разработчику.</p>
+        <a class="button primary" href="https://t.me/keden44_monitor_bot?start=support" target="_blank" rel="noreferrer">Задать вопрос разработчику</a>
+        <a class="button urgent" href="https://t.me/keden44_monitor_bot?start=support_urgent" target="_blank" rel="noreferrer">Срочно: работа остановилась</a>
+        <a class="button secondary" href="mailto:ezhanat@gmail.com">Написать на почту</a>
+        <small>Не отправляйте пароли, ЭЦП, полный номер карты и документы с открытыми данными третьих лиц.</small>
+      </aside>
+    </div>
+  </main>
+  <footer><div><strong>KEDEN44</strong><span>Независимый центр помощи пользователям KEDEN44.</span></div><div class="footer-links"><a href="/privacy.html">Конфиденциальность</a><a href="/terms.html">Условия</a><a href="/support/">Поддержать проект</a></div></footer>
+  <script src="/help/help.js"></script>
+</body>
+</html>

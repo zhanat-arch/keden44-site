@@ -111,6 +111,28 @@ function renderPayments(payments = []) {
   }
 }
 
+function renderSupport(tickets = []) {
+  const body = $('#supportBody');
+  body.replaceChildren();
+  for (const ticket of tickets) {
+    const row = document.createElement('tr');
+    cell(row, dateTime(ticket.createdAt));
+    const priority = cell(row, ticket.priority === 'urgent' ? 'Срочный' : 'Обычный');
+    priority.className = ticket.priority === 'urgent' ? 'state bad' : 'state';
+    cell(row, ticket.contact || ticket.username || '—');
+    cell(row, ticket.text);
+    const status = cell(row, ticket.status === 'answered' ? 'Отвечено' : 'В очереди');
+    status.className = ticket.status === 'answered' ? 'state ok' : 'state wait';
+    body.append(row);
+  }
+  if (!tickets.length) {
+    const row = document.createElement('tr');
+    const empty = cell(row, 'Вопросов пока нет.', 'emptyRow');
+    empty.colSpan = 5;
+    body.append(row);
+  }
+}
+
 function render(data) {
   const metrics = data.metrics || {};
   setText('usersTotal', metrics.users || 0);
@@ -129,10 +151,12 @@ function render(data) {
   setText('generatedAt', `Обновлено ${dateTime(data.generatedAt)}`);
   setText('usersCount', `Всего: ${data.users?.length || 0}`);
   setText('paymentsCount', `Заявок: ${data.payments?.length || 0}`);
+  setText('supportCount', `Открытых: ${metrics.openSupportTickets || 0}`);
   setText('adminIdentity', data.admin?.email || '');
   renderActivity(data.dailyActivity);
   renderUsers(data.users);
   renderPayments(data.payments);
+  renderSupport(data.supportTickets);
   $('#authView').hidden = true;
   $('#dashboard').hidden = false;
   $('#refreshBtn').hidden = false;
