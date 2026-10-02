@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Админка KEDEN44</title>
+  <link rel="icon" href="/assets/logo.png">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <header class="adminHeader">
+    <div><a href="/">KEDEN44</a><h1>Админка</h1></div>
+    <div class="headerActions"><span id="adminIdentity"></span><button id="refreshBtn" type="button" hidden>Обновить</button></div>
+  </header>
+
+  <main>
+    <section id="authView" class="authView">
+      <h2>Вход владельца</h2>
+      <p>Доступ разрешён только администратору KEDEN44.</p>
+      <div id="googleButton"></div>
+      <p id="authStatus" role="status"></p>
+    </section>
+
+    <div id="dashboard" hidden>
+      <section class="metricGrid" aria-label="Основные показатели">
+        <article><span>Пользователи</span><strong id="usersTotal">0</strong><small>Google-аккаунты</small></article>
+        <article><span>Активны сегодня</span><strong id="activeToday">0</strong><small>уникальные люди</small></article>
+        <article><span>Активны 24 часа</span><strong id="active24h">0</strong><small>по обращениям к API</small></article>
+        <article><span>Google-синхронизация</span><strong id="googleSync">0</strong><small>аккаунтов</small></article>
+        <article><span>Telegram</span><strong id="telegramUsers">0</strong><small>подключили уведомления</small></article>
+        <article><span>Подписки</span><strong id="subscriptions">0</strong><small>активные и проверяемые</small></article>
+        <article><span>Доход всего</span><strong id="incomeTotal">0</strong><small id="incomeTotalDetail">платежи</small></article>
+        <article><span>Доход сегодня</span><strong id="incomeToday">0</strong><small id="incomeTodayDetail">платежи</small></article>
+      </section>
+
+      <section class="band activityBand">
+        <div class="sectionTitle"><div><h2>Ежедневная активность</h2><p>Подтверждённые Google-пользователи, а не просмотры и User-Agent.</p></div><span id="generatedAt"></span></div>
+        <div id="activityChart" class="activityChart" aria-label="Активность за 30 дней"></div>
+        <div class="secondaryMetrics">
+          <span>Устройств: <b id="devices">0</b></span>
+          <span>Анонимных устройств: <b id="anonymousDevices">0</b></span>
+          <span>ДТ под наблюдением: <b id="watchedDeclarations">0</b></span>
+          <span>Новых сегодня: <b id="newToday">0</b></span>
+          <span>Бот: <b id="botStatus">неизвестно</b></span>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="sectionTitle"><div><h2>Пользователи</h2><p>Один человек может использовать несколько устройств.</p></div><span id="usersCount"></span></div>
+        <div class="tableWrap"><table><thead><tr><th>Пользователь</th><th>Последняя активность</th><th>Синхронизация</th><th>Telegram</th><th>ДТ</th><th>Подписка</th></tr></thead><tbody id="usersBody"></tbody></table></div>
+      </section>
+
+      <section class="band">
+        <div class="sectionTitle"><div><h2>Оплаты</h2><p>Последние заявки и их фактическое состояние на сервере.</p></div><span id="paymentsCount"></span></div>
+        <div class="tableWrap"><table><thead><tr><th>Дата</th><th>Пользователь</th><th>Сумма</th><th>Статус</th><th>Доступ</th></tr></thead><tbody id="paymentsBody"></tbody></table></div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

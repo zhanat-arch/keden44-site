@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "access": {
     "mode": "open_test",
     "title": "Бесплатное тестирование до 31 октября 2026",
@@ -35,6 +35,23 @@
       {
         "title": "Передайте ДТ в монитор",
         "text": "Включите наблюдение или нажмите «Передать в монитор». Не закрывайте вкладку KEDEN, если нужны уведомления личного кабинета; панель расширения можно скрыть."
+      }
+    ]
+  },
+  "ui": {
+    "promotions": [
+      {
+        "id": "example-product",
+        "visible": false,
+        "placement": "footer",
+        "kind": "product",
+        "badge": "От KEDEN44",
+        "title": "Название продукта",
+        "text": "Короткое описание без данных пользователя.",
+        "imageUrl": "https://keden44.com/assets/keden44-mark.png",
+        "linkUrl": "https://keden44.com/",
+        "linkLabel": "Подробнее",
+        "maxHeight": 180
       }
     ]
   },
