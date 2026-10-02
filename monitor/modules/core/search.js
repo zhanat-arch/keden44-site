@@ -2,7 +2,7 @@ const SEARCH_FIELDS = [
   'name', 'dtNumber', 'kdtNumber', 'status', 'releaseDate',
   'declarant', 'declarantBin', 'sender', 'receiver', 'receiverBin',
   'invoice', 'tnved', 'goods', 'description', 'transport', 'container',
-  'containers', 'sourceFileName', 'sourceFolder', 'note'
+  'containers', 'sourceFileName', 'sourceFolder', 'note', 'specialistNote'
 ];
 
 export function normalizeSearchText(value) {

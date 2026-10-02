@@ -29,3 +29,7 @@ test('finds a declaration by several human fields', () => {
   assert.equal(recordMatchesQuery(record, '29.09.2026'), true);
   assert.equal(recordMatchesQuery(record, 'другой клиент'), false);
 });
+
+test('finds a declaration by a specialist note', () => {
+  assert.equal(recordMatchesQuery({ specialistNote: 'Ждём акт досмотра' }, 'акт досмотра'), true);
+});

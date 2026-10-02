@@ -46,6 +46,8 @@ export function createTelegramClient({
     googleAuth: credential => authenticated('/auth/google', { credential }),
     cloudPull: () => authenticated('/cloud/pull'),
     cloudPush: (records, settings) => authenticated('/cloud/push', { records, settings }),
+    shareOrganizationNotifications: items => authenticated('/organization/notifications/share', { items }),
+    pullOrganizationNotifications: dtNumbers => authenticated('/organization/notifications/pull', { dtNumbers }),
     notify: (title, body, dedupeKey) => authenticated('/notify', {
       text: `${String(title).trim()}\n\n${String(body).trim()}`,
       dedupeKey

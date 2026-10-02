@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { notificationForChange, notificationTimestamp } from './notifications.js';
+import { inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './notifications.js';
 
 test('sorts KEDEN notification dates written in Russian format', () => {
   const assigned = notificationTimestamp('30.09.2026, 14:33:52');
@@ -48,4 +48,10 @@ test('notifies when a conditional release is cleared', () => {
     ['статус изменился'],
     { notifyReleased: false, notifyConditional: true, notifyStatusChanges: false, notifyDataChanges: false }
   )?.title, 'Условный выпуск очищен');
+});
+
+test('keeps an inspection active until KEDEN reports its completion', () => {
+  assert.equal(inspectionStateFromNotification(false, 'Назначен таможенный досмотр по ДТ 1'), true);
+  assert.equal(inspectionStateFromNotification(true, 'Поступил дополнительный запрос по ДТ 1'), true);
+  assert.equal(inspectionStateFromNotification(true, 'Таможенный досмотр завершён по ДТ 1'), false);
 });

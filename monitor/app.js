@@ -1,5 +1,6 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { notificationForChange, notificationTimestamp } from './modules/core/notifications.js';
+import { inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './modules/core/notifications.js';
+import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
 import { requestKedenCheck } from './modules/keden/client.js';
@@ -19,7 +20,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), googleSignIn: $('#googleSignIn'), googleSetupState: $('#googleSetupState'), telegramSetupState: $('#telegramSetupState'), serverSetupState: $('#serverSetupState'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
       searchInput: $('#searchInput'), declarantBinFilter: $('#declarantBinFilter'), scopeSelect: $('#scopeSelect'), releasePeriod: $('#releasePeriod'), resetFiltersBtn: $('#resetFiltersBtn'), workInterval: $('#workInterval'), releasedInterval: $('#releasedInterval'), recentDays: $('#recentDays'), conditionalDays: $('#conditionalDays'), checkDueBtn: $('#checkDueBtn'), line: $('#line'), summary: $('#summary'),
       notifyReleased: $('#notifyReleased'), notifyStatusChanges: $('#notifyStatusChanges'), notifyDataChanges: $('#notifyDataChanges'), notifyProblems: $('#notifyProblems'), notifyConditional: $('#notifyConditional'),
-      showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'),
+      showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'), helpCoworkers: $('#helpCoworkers'), helpQrChecks: $('#helpQrChecks'),
       entryDialog: $('#entryDialog'), entryForm: $('#entryForm'), dialogTitle: $('#dialogTitle'), closeDialogBtn: $('#closeDialogBtn'), cancelBtn: $('#cancelBtn'),
       extensionDialog: $('#extensionDialog'), extensionForm: $('#extensionForm'), closeExtensionBtn: $('#closeExtensionBtn'), cancelExtensionBtn: $('#cancelExtensionBtn'),
       notificationsDialog: $('#notificationsDialog'), notificationsTitle: $('#notificationsTitle'), notificationsList: $('#notificationsList'), closeNotificationsBtn: $('#closeNotificationsBtn'),
@@ -51,6 +52,12 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const corrections = [];
 
       for (const item of items) {
+        if (typeof item.onInspection !== 'boolean') {
+          item.onInspection = (item.history || [])
+            .filter(line => /уведомление KEDEN:/i.test(line))
+            .reduce((state, line) => inspectionStateFromNotification(state, line), false);
+        }
+        if (!Array.isArray(item.kedenUnreadNotificationIds)) item.kedenUnreadNotificationIds = [];
         if (item.status === 'Нужна проверка' && item.kedenUrl
           && !(item.logs || []).some(line => /KEDEN проверен|Проверка KEDEN/i.test(line))) {
           item.checkedAt = '';
@@ -88,7 +95,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return output;
     }
     function loadSettings() {
-      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, testPresetVersion: TEST_PRESET_VERSION };
+      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, helpCoworkers: true, helpQrChecks: true, testPresetVersion: TEST_PRESET_VERSION };
       try {
         const saved = store && store.getItem(SETTINGS_KEY);
         if (!saved) return defaults;
@@ -105,7 +112,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function persistentRecords() { return records.filter(record => !record.transientDuplicate); }
     function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
-    function applyKedenNotifications(items = []) {
+    function applyKedenNotifications(items = [], { share = true } = {}) {
       let changedCount = 0;
       let recordsTouched = false;
       const notificationItems = [...(Array.isArray(items) ? items : [])].sort((left, right) => notificationTimestamp(left.deliveredAt) - notificationTimestamp(right.deliveredAt));
@@ -142,13 +149,18 @@ import { createTelegramClient } from './modules/telegram/client.js';
           const baseNumber = declarationNumberParts(dtNumber).baseNumber;
           const record = records.find(candidate => declarationNumberParts(candidate.dtNumber).baseNumber === baseNumber);
           if (!record || record.transientDuplicate) continue;
+          const nextInspectionState = inspectionStateFromNotification(record.onInspection, item.text);
+          if (nextInspectionState !== Boolean(record.onInspection)) {
+            record.onInspection = nextInspectionState;
+            recordsTouched = true;
+          }
           const known = new Set(record.kedenNotificationIds || []);
           if (known.has(item.id)) continue;
           known.add(item.id);
           record.kedenNotificationIds = [...known].slice(-100);
           const delivered = notificationTimestamp(item.deliveredAt);
           const checked = notificationTimestamp(record.checkedAt);
-          const isNew = !Number.isNaN(delivered) && !Number.isNaN(checked) && delivered > checked;
+          const isNew = Number.isNaN(checked) || (!Number.isNaN(delivered) && delivered > checked);
           const notificationText = String(item.text || '');
           if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(notificationText)) {
             record.requestWorkflow = 'new';
@@ -162,6 +174,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
             if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
           }
           if (isNew) {
+            record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
             record.changed = true;
             record.updatedAt = new Date().toISOString();
             sendNotice(`Новое уведомление KEDEN: ${baseNumber}`, String(item.text || '').slice(0, 240), `keden:${item.id}`);
@@ -176,6 +189,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
         saveRecords();
         render();
         if (changedCount) els.line.textContent = `Новых уведомлений KEDEN по ДТ: ${changedCount}`;
+      }
+      if (share && settings.helpCoworkers && googleConnected && items.length) {
+        telegram.shareOrganizationNotifications(items).catch(() => {});
       }
       return changedCount;
     }
@@ -238,7 +254,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return deadline ? { deadline, remaining: daysUntil(deadline) } : null;
     }
     function conditionalNeedsAttention(record) { const info = conditionalInfo(record); return Boolean(info && info.remaining <= 7); }
-    function recordNeedsAttention(record) { return needsAttention(record) || conditionalNeedsAttention(record); }
+    function recordNeedsAttention(record) { return Boolean(record.onInspection) || needsAttention(record) || conditionalNeedsAttention(record); }
     function matches(record) { if (!recordMatchesQuery(record, query)) return false; if (declarantBinFilter && !String(record.declarantBin || '').includes(declarantBinFilter)) return false; if (releasePeriod !== 'all') { const date = parseReleaseDate(record.releaseDate); if (!date || Date.now() - date.getTime() > Number(releasePeriod) * 86400000) return false; } if (scope === 'active') return !record.archived; if (scope === 'changed') return recordNeedsAttention(record); if (scope === 'conditional') return !record.archived && isConditionalRelease(record.status); if (scope === 'work') return !record.archived && !recordNeedsAttention(record) && !['released', 'conditional'].includes(statusKind(record.status)); if (scope === 'released') return !record.archived && statusKind(record.status) === 'released'; return true; }
     function grouped() { const out = { changed: [], work: [], conditional: [], released: [], archive: [] }; records.filter(matches).forEach(r => { if (r.archived) out.archive.push(r); else if (recordNeedsAttention(r)) out.changed.push(r); else if (statusKind(r.status) === 'conditional') out.conditional.push(r); else if (statusKind(r.status) === 'released' && isRecentRelease(r.releaseDate, settings.recentDays)) out.released.push(r); else if (statusKind(r.status) === 'released') out.archive.push(r); else out.work.push(r); }); return out; }
 
@@ -301,6 +317,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(text)) return 'Поступил дополнительный запрос';
       if (/выпущен/i.test(text)) return 'ДТ выпущена';
       if (/отозван/i.test(text)) return 'ДТ отозвана';
+      if (/досмотр/i.test(text) && /заверш[её]н|окончан|провед[её]н|снят|отмен[её]н/i.test(text)) return 'Досмотр завершён';
+      if (/досмотр/i.test(text) && /назначен|начат|проводится|направлен/i.test(text)) return 'Назначен таможенный досмотр';
       if (/завершен.*(?:контрол|проверк)/i.test(text)) return 'Контроль завершён';
       if (/назначен.*контрол/i.test(text)) return 'Назначен таможенный контроль';
       return text.length > 110 ? text.slice(0, 107) + '...' : text || 'Уведомление KEDEN';
@@ -321,6 +339,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
           return '<div class="notificationHistoryItem privateData"><strong>' + esc(kedenEventTitle(text)) + '</strong><span>' + esc(text) + '</span><small>' + esc(time) + '</small></div>';
         }).join('')
         : '<p class="emptyNotifications">Сохранённых уведомлений пока нет.</p>';
+      if ((record.kedenUnreadNotificationIds || []).length) {
+        record.kedenUnreadNotificationIds = [];
+        saveRecords();
+        render();
+      }
       if (typeof els.notificationsDialog.showModal === 'function') els.notificationsDialog.showModal();
       else els.notificationsDialog.setAttribute('open', '');
     }
@@ -384,15 +407,21 @@ import { createTelegramClient } from './modules/telegram/client.js';
           + previewButton
           + '<button class="iconAction refreshAction" data-action="check" data-tooltip="Проверить статус сейчас" aria-label="Проверить статус сейчас">↻</button>'
           + '<button class="iconAction acceptAction" data-action="clear" data-tooltip="Принять новое изменение" aria-label="Принять новое изменение">✓</button>'
+          + '<button class="iconAction noteAction" data-action="note" data-tooltip="Краткая заметка" aria-label="Краткая заметка">✎</button>'
           + '<details class="cardMenu"><summary data-tooltip="Другие действия" aria-label="Другие действия">⋯</summary><div class="cardMenuPopover">' + menuItems + '</div></details>';
       const workflowText = record.requestWorkflow === 'progress' ? 'Собираем документы.' : record.requestWorkflow === 'done' ? 'Ответ отправлен.' : '';
       const conditionalRequestHint = isConditionalRelease(record.status) && hasDocumentRequest
         ? '<em>Возможно, это запрос сертификата. Приложите его, когда будет готов.</em>'
         : '';
+      const unreadNotifications = (record.kedenUnreadNotificationIds || []).length;
+      const unreadBadge = unreadNotifications ? '<b class="unreadCount" aria-label="Непрочитанных уведомлений: ' + unreadNotifications + '">' + unreadNotifications + '</b>' : '';
       const kedenEventHtml = record.lastKedenNotification
-        ? '<button class="kedenEvent' + (record.changed ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span class="kedenEventText"><b>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</b>' + (workflowText ? '<i>' + esc(workflowText) + '</i>' : '') + conditionalRequestHint + '</span><small>Смотреть все уведомления</small></button>'
+        ? '<button class="kedenEvent' + (unreadNotifications ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span class="kedenEventText"><b>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</b>' + (workflowText ? '<i>' + esc(workflowText) + '</i>' : '') + conditionalRequestHint + '</span><small>Смотреть все уведомления' + unreadBadge + '</small></button>'
         : '';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges"><span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span></div></div>' + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + deadlineHtml + detailsHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      const inspectionBadge = record.onInspection ? '<span class="pill bad inspectionBadge">На досмотре</span>' : '';
+      const noteHtml = record.specialistNote ? '<div class="specialistNote privateData"><b>Заметка:</b> ' + esc(record.specialistNote) + '</div>' : '';
+      const noteEditorHtml = '<div class="cardNoteEditor" data-note-editor hidden><input type="text" maxlength="160" value="' + esc(record.specialistNote || '') + '" placeholder="Краткая заметка"><button type="button" data-note-save>OK</button></div>';
+      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + '<span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span></div></div>' + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
         node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
           records = records.filter(item => item.id !== record.id);
@@ -408,11 +437,39 @@ import { createTelegramClient } from './modules/telegram/client.js';
       node.querySelector('[data-action="check"]').addEventListener('click', () => check(record.id));
       node.querySelector('[data-action="request-progress"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'progress'));
       node.querySelector('[data-action="request-done"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'done'));
+      node.querySelector('[data-action="note"]')?.addEventListener('click', () => openCardNoteEditor(node, record));
       node.querySelector('[data-action="edit"]')?.addEventListener('click', () => openForm(record));
       node.querySelector('[data-action="clear"]')?.addEventListener('click', () => clearChanged(record.id));
       node.querySelector('[data-action="archive"]')?.addEventListener('click', () => toggleArchive(record.id));
       node.querySelector('[data-action="delete"]')?.addEventListener('click', () => deleteRecord(record.id));
       return node;
+    }
+
+    function openCardNoteEditor(node, record) {
+      const editor = node.querySelector('[data-note-editor]');
+      const input = editor?.querySelector('input');
+      const saveButton = editor?.querySelector('[data-note-save]');
+      if (!editor || !input || !saveButton) return;
+      editor.hidden = false;
+      input.focus();
+      input.select();
+      const save = () => {
+        const value = input.value.trim();
+        if (value === String(record.specialistNote || '')) {
+          editor.hidden = true;
+          return;
+        }
+        record.specialistNote = value;
+        record.updatedAt = new Date().toISOString();
+        record.history = [...(record.history || []), now() + (value ? ': заметка обновлена' : ': заметка удалена')];
+        saveRecords();
+        render();
+      };
+      saveButton.addEventListener('click', save, { once: true });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); save(); }
+        if (event.key === 'Escape') editor.hidden = true;
+      });
     }
 
     function openForm(record = null) { els.entryForm.reset(); els.dialogTitle.textContent = record ? 'Править ДТ' : 'Добавить ДТ'; if (record) Object.entries(record).forEach(([key, value]) => { if (els.entryForm.elements[key]) els.entryForm.elements[key].value = value || ''; }); if (typeof els.entryDialog.showModal === 'function') els.entryDialog.showModal(); else els.entryDialog.setAttribute('open', ''); }
@@ -664,6 +721,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
         : null;
       let previewRecordId = importedRecord.id;
       let duplicateImport = false;
+      let mergedFields = [];
+      let shouldSaveFirstPage = Boolean(firstPagePreview);
 
       if (number.isCorrection) {
         if (existing && existing.kedenUrl && !existing.requiresMainDt) {
@@ -707,6 +766,18 @@ import { createTelegramClient } from './modules/telegram/client.js';
       } else if (existing) {
         previewRecordId = existing.id;
         duplicateImport = true;
+        mergedFields = fillMissingRecordFields(existing, importedRecord);
+        if (firstPagePreview && !existing.hasFirstPagePreview) {
+          existing.hasFirstPagePreview = true;
+          existing.previewImportedAt = now();
+        } else if (existing.hasFirstPagePreview) {
+          shouldSaveFirstPage = false;
+        }
+        existing.logs = [...(existing.logs || []), ...logs, now() + ' | Повторный PDF: '
+          + (mergedFields.length ? 'дозаполнены ' + mergedFields.join(', ') : 'новых данных нет')];
+        existing.history = [...(existing.history || []), now() + ': повторная загрузка'
+          + (mergedFields.length ? ', дозаполнены: ' + mergedFields.join(', ') : ', оригинал не изменён')];
+        if (mergedFields.length) existing.updatedAt = new Date().toISOString();
         const duplicateId = crypto.randomUUID();
         records.unshift({
           ...importedRecord,
@@ -716,7 +787,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
           qrImageDataUrl: '',
           hasFirstPagePreview: false,
           transientDuplicate: true,
-          description: `Оригинал уже есть в мониторе. Его текущий статус: ${existing.status || 'не определён'}. Эта копия исчезнет через 5 минут.`,
+          description: `Оригинал уже есть в мониторе. Его текущий статус: ${existing.status || 'не определён'}. `
+            + (mergedFields.length ? `Дозаполнено: ${mergedFields.join(', ')}. ` : '') + 'Эта копия исчезнет через 5 минут.',
           history: [now() + ': повторная загрузка, оригинал не изменён'],
         });
         setTimeout(() => {
@@ -728,16 +800,17 @@ import { createTelegramClient } from './modules/telegram/client.js';
         records.unshift(importedRecord);
         els.line.textContent = data.qrUrl ? 'PDF импортирован, QR найден' : 'PDF импортирован, QR не найден';
       }
-      if (firstPagePreview && !duplicateImport) await saveFirstPagePreview(previewRecordId, firstPagePreview);
+      if (shouldSaveFirstPage) await saveFirstPagePreview(previewRecordId, firstPagePreview);
       saveRecords();
       render();
       const savedRecord = records.find(record => record.id === previewRecordId);
-      if (!duplicateImport && savedRecord?.kedenUrl && !savedRecord.requiresMainDt) {
+      if ((!duplicateImport || mergedFields.length) && savedRecord?.kedenUrl && !savedRecord.requiresMainDt) {
         els.line.textContent = 'QR найден. Сразу проверяю статус в KEDEN...';
         await check(savedRecord.id);
       }
       finalImportMessage = duplicateImport
         ? `Эта ДТ уже есть. Текущий статус: ${savedRecord?.status || 'не определён'}`
+          + (mergedFields.length ? `. Дозаполнено: ${mergedFields.join(', ')}` : '')
         : (savedRecord?.status ? `ДТ добавлена. Статус: ${savedRecord.status}` : 'ДТ добавлена');
       console.info('DT import logs', logs);
       return true;
@@ -798,6 +871,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
     async function checkAll() { for (const record of records.filter(r => !r.archived && r.kedenUrl && !isTerminalStatus(r.status))) await check(record.id); }
     async function checkDue(silent = false) {
       if (dueCheckRunning) return;
+      if (!settings.helpQrChecks) {
+        if (!silent) els.line.textContent = 'Фоновая проверка QR отключена в настройках';
+        return;
+      }
       const due = records.filter(isDue);
       if (!due.length) {
         if (!silent) els.line.textContent = 'Сейчас нет ДТ, которым нужна проверка';
@@ -849,6 +926,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       els.showSender.checked = settings.showSender;
       els.showReceiver.checked = settings.showReceiver;
       els.privacyMode.checked = settings.privacyMode;
+      els.helpCoworkers.checked = settings.helpCoworkers;
+      els.helpQrChecks.checked = settings.helpQrChecks;
       document.body.classList.toggle('privacyMode', settings.privacyMode);
       updateNotificationButton();
     }
@@ -869,7 +948,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
         showGoods: els.showGoods.checked,
         showSender: els.showSender.checked,
         showReceiver: els.showReceiver.checked,
-        privacyMode: els.privacyMode.checked
+        privacyMode: els.privacyMode.checked,
+        helpCoworkers: els.helpCoworkers.checked,
+        helpQrChecks: els.helpQrChecks.checked
       };
       saveSettings();
       applySettings();
@@ -936,9 +1017,17 @@ import { createTelegramClient } from './modules/telegram/client.js';
         applySettings();
       }
       googleCloudLoaded = true;
+      await pullCoworkerNotifications();
       saveRecords();
       render();
       els.line.textContent = 'Синхронизация Google завершена: ' + records.length + ' ДТ';
+    }
+    async function pullCoworkerNotifications() {
+      if (!googleConnected || !settings.helpCoworkers) return 0;
+      const dtNumbers = persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber).filter(Boolean);
+      if (!dtNumbers.length) return 0;
+      const result = await telegram.pullOrganizationNotifications(dtNumbers);
+      return applyKedenNotifications(result.items || [], { share: false });
     }
     async function pushCloud() {
       if (!googleConnected || !googleCloudLoaded) return;
@@ -1222,7 +1311,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     els.notifyDataChanges.addEventListener('change', updateSettings);
     els.notifyProblems.addEventListener('change', updateSettings);
     els.notifyConditional.addEventListener('change', updateSettings);
-    for (const input of [els.showDeclarant, els.showTransport, els.showGoods, els.showSender, els.showReceiver, els.privacyMode]) input.addEventListener('change', updateSettings);
+    for (const input of [els.showDeclarant, els.showTransport, els.showGoods, els.showSender, els.showReceiver, els.privacyMode, els.helpCoworkers, els.helpQrChecks]) input.addEventListener('change', updateSettings);
     els.notifyBtn.addEventListener('click', enableNotifications);
     els.telegramBtn.addEventListener('click', connectTelegram);
     els.googleSignIn?.addEventListener('click', event => {
@@ -1244,6 +1333,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const wasConnected = telegramConnected;
       const linked = await refreshTelegramStatus();
       if (linked && !wasConnected && googleConnected) syncTelegramWatches().catch(() => {});
+      if (googleConnected && settings.helpCoworkers) pullCoworkerNotifications().catch(() => {});
     }, 30000);
     saveRecords();
     render();

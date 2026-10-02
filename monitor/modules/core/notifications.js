@@ -15,6 +15,14 @@ export function notificationTimestamp(value) {
   return Date.parse(text);
 }
 
+export function inspectionStateFromNotification(current, value = '') {
+  const text = String(value).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!/досмотр/i.test(text)) return Boolean(current);
+  if (/заверш[её]н|окончан|провед[её]н|снят|отмен[её]н/i.test(text)) return false;
+  if (/назначен|начат|проводится|направлен/i.test(text)) return true;
+  return Boolean(current);
+}
+
 export function notificationForChange(previous, next, changes, settings) {
   if (!changes.length) return null;
   const name = next.name || next.dtNumber || 'ДТ';
