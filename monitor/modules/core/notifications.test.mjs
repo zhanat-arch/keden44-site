@@ -59,6 +59,6 @@ test('keeps an inspection active until KEDEN reports its completion', () => {
 test('reads assigned customs control and affected goods from a KEDEN notification', () => {
   assert.deepEqual(controlAssignmentFromNotification(
     'В отношении товаров 1, 3 по ДТ 55302/300926/0086612, назначен следующий вид контроля Контроль таможенной стоимости (ГДУ). Исполнитель: ФИО УАЛИ'
-  ), { goods: '1, 3', control: 'Контроль таможенной стоимости (ГДУ)' });
+  ), { goods: '1, 3', control: 'Контроль таможенной стоимости (ГДУ)', inspector: 'УАЛИ' });
   assert.equal(controlAssignmentFromNotification('Поступил дополнительный запрос по ДТ'), null);
 });

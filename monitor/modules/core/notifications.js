@@ -29,7 +29,10 @@ export function controlAssignmentFromNotification(value = '') {
     ?.replace(/[.;,\s]+$/, '').trim();
   if (!control) return null;
   const goods = text.match(/в отношении товаров?\s+(.+?)\s+по\s+ДТ(?:\s|№)/i)?.[1]?.trim() || '';
-  return { goods: goods.slice(0, 120), control: control.slice(0, 300) };
+  const inspector = text.match(/Исполнитель\s*:\s*(.+)$/i)?.[1]
+    ?.replace(/\s+(?:0[1I]M[A-Z0-9]+|NOTIF_[A-Z0-9_]+|<!doctype|<html)[\s\S]*$/i, '')
+    .replace(/^ФИО\s+/i, '').trim() || '';
+  return { goods: goods.slice(0, 120), control: control.slice(0, 300), inspector: inspector.slice(0, 180) };
 }
 
 export function notificationForChange(previous, next, changes, settings) {
