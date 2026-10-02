@@ -42,9 +42,9 @@ export function summarizeControlAssignments(items = []) {
     const control = String(item.control || '').trim();
     if (!control) continue;
     const inspector = String(item.inspector || '').trim();
-    const key = `${control}\u0000${inspector}`;
-    const group = groups.get(key) || { control, inspector, goods: new Set(), dates: new Set() };
-    if (item.goods) group.goods.add(String(item.goods).trim());
+    const goods = String(item.goods || '').trim();
+    const key = `${goods}\u0000${control}\u0000${inspector}`;
+    const group = groups.get(key) || { control, inspector, goods, dates: new Set() };
     if (item.date) group.dates.add(String(item.date).trim());
     groups.set(key, group);
   }
@@ -52,8 +52,7 @@ export function summarizeControlAssignments(items = []) {
     date: dates.length === 1 ? dates[0] : '',
     lines: [...groups.values()].map(group => {
       const date = dates.length > 1 && group.dates.size === 1 ? `${[...group.dates][0]} — ` : '';
-      const goods = [...group.goods].join(', ') || 'не указаны';
-      return `${date}товары ${goods}: ${group.control}${group.inspector ? ` · инспектор: ${group.inspector}` : ''}`;
+      return `${date}товары ${group.goods || 'не указаны'}: ${group.control}${group.inspector ? ` · инспектор: ${group.inspector}` : ''}`;
     })
   };
 }
