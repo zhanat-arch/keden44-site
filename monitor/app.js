@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './modules/core/notifications.js';
+import { controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -115,6 +115,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function applyKedenNotifications(items = [], { share = true } = {}) {
       let changedCount = 0;
       let recordsTouched = false;
+      const controlBatches = new Map();
       const notificationItems = [...(Array.isArray(items) ? items : [])].sort((left, right) => notificationTimestamp(left.deliveredAt) - notificationTimestamp(right.deliveredAt));
       const latestByNumber = new Map();
       const latestItemByNumber = new Map();
@@ -179,19 +180,36 @@ import { createTelegramClient } from './modules/telegram/client.js';
             record.updatedAt = new Date().toISOString();
             const timestamp = notificationTimestamp(item.deliveredAt);
             const date = Number.isNaN(timestamp) ? '' : new Date(timestamp).toLocaleString('ru-RU');
-            const context = [
-              date ? `Дата: ${date}` : '',
-              record.declarant ? `Декларант: ${record.declarant}` : '',
-              record.goods ? `Первый товар: ${record.goods}` : '',
-              String(item.text || '').trim()
-            ].filter(Boolean).join('\n\n').slice(0, 3800);
-            sendNotice(`KEDEN: ${baseNumber} — ${kedenEventTitle(item.text)}`, context, `keden:${item.id}`);
+            const assignment = controlAssignmentFromNotification(item.text);
+            if (assignment) {
+              const batch = controlBatches.get(baseNumber) || { record, items: [] };
+              batch.items.push({ ...assignment, date, id: item.id });
+              controlBatches.set(baseNumber, batch);
+            } else {
+              const context = [
+                date ? `Дата: ${date}` : '',
+                record.declarant ? `Декларант: ${record.declarant}` : '',
+                record.goods ? `Первый товар: ${record.goods}` : '',
+                String(item.text || '').trim()
+              ].filter(Boolean).join('\n\n').slice(0, 3800);
+              sendNotice(`KEDEN: ${baseNumber} — ${kedenEventTitle(item.text)}`, context, `keden:${item.id}`);
+            }
             changedCount++;
           }
           const time = Number.isNaN(delivered) ? now() : new Date(delivered).toLocaleString('ru-RU');
           record.history = [...(record.history || []), `${time}: уведомление KEDEN: ${String(item.text || '')}`];
           recordsTouched = true;
         }
+      }
+      for (const [baseNumber, batch] of controlBatches) {
+        const context = [
+          batch.record.declarant ? `Декларант: ${batch.record.declarant}` : '',
+          batch.record.goods ? `Первый товар: ${batch.record.goods}` : ''
+        ].filter(Boolean);
+        const controls = batch.items.map(item => `${item.date ? item.date + ' — ' : ''}товары ${item.goods || 'не указаны'}: ${item.control}`);
+        const body = [...context, ...controls].join('\n\n').slice(0, 3800);
+        const latest = batch.items.at(-1);
+        sendNotice(`KEDEN: ${baseNumber} — назначены контроли`, body, `keden-controls:${baseNumber}:${latest.id}:${batch.items.length}`);
       }
       if (recordsTouched) {
         saveRecords();

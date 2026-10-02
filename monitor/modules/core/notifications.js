@@ -23,6 +23,15 @@ export function inspectionStateFromNotification(current, value = '') {
   return Boolean(current);
 }
 
+export function controlAssignmentFromNotification(value = '') {
+  const text = String(value).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const control = text.match(/назначен(?:\s+следующий)?\s+вид контроля\s+(.+?)(?=\s*[.;]?\s*Исполнитель(?:\s|:)|$)/i)?.[1]
+    ?.replace(/[.;,\s]+$/, '').trim();
+  if (!control) return null;
+  const goods = text.match(/в отношении товаров?\s+(.+?)\s+по\s+ДТ(?:\s|№)/i)?.[1]?.trim() || '';
+  return { goods: goods.slice(0, 120), control: control.slice(0, 300) };
+}
+
 export function notificationForChange(previous, next, changes, settings) {
   if (!changes.length) return null;
   const name = next.name || next.dtNumber || 'ДТ';

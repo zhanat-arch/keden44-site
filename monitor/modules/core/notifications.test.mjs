@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './notifications.js';
+import { controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp } from './notifications.js';
 
 test('sorts KEDEN notification dates written in Russian format', () => {
   const assigned = notificationTimestamp('30.09.2026, 14:33:52');
@@ -54,4 +54,11 @@ test('keeps an inspection active until KEDEN reports its completion', () => {
   assert.equal(inspectionStateFromNotification(false, 'Назначен таможенный досмотр по ДТ 1'), true);
   assert.equal(inspectionStateFromNotification(true, 'Поступил дополнительный запрос по ДТ 1'), true);
   assert.equal(inspectionStateFromNotification(true, 'Таможенный досмотр завершён по ДТ 1'), false);
+});
+
+test('reads assigned customs control and affected goods from a KEDEN notification', () => {
+  assert.deepEqual(controlAssignmentFromNotification(
+    'В отношении товаров 1, 3 по ДТ 55302/300926/0086612, назначен следующий вид контроля Контроль таможенной стоимости (ГДУ). Исполнитель: ФИО УАЛИ'
+  ), { goods: '1, 3', control: 'Контроль таможенной стоимости (ГДУ)' });
+  assert.equal(controlAssignmentFromNotification('Поступил дополнительный запрос по ДТ'), null);
 });
