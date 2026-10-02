@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Тут нет админки — KEDEN44</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <img src="https://api.keden44.com/v1/telegram/security/admin-probe.gif" alt="" width="1" height="1" hidden>
+  <main style="max-width:720px;margin:18vh auto;padding:24px;text-align:center">
+    <p id="plainMessage" style="font-size:clamp(28px,6vw,52px);font-weight:800">Тут нет админки</p>
+    <section id="decoy" hidden style="max-width:440px;margin:auto;padding:24px;border:1px solid #dbe3ee;background:#fff;text-align:left">
+      <p style="margin:0 0 6px;color:#667085;font-size:12px">KEDEN44 INTERNAL</p>
+      <h1 style="margin:0 0 10px">Служебный вход</h1>
+      <p id="decoyStatus">Обнаружен сохранённый служебный сеанс.</p>
+      <button id="decoyButton" type="button" style="min-height:40px;padding:0 16px">Проверить доступ</button>
+      <div id="decoyProgress" hidden style="height:8px;margin-top:18px;background:#eef2f7"><i style="display:block;width:0;height:100%;background:#2563eb;transition:width 2.4s linear"></i></div>
+    </section>
+  </main>
+  <script src="./decoy.js"></script>
+</body>
+</html>
