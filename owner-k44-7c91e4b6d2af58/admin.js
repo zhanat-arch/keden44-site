@@ -133,6 +133,61 @@ function renderSupport(tickets = []) {
   }
 }
 
+function extensionState(reason) {
+  const labels = {
+    ok: 'Связь работает',
+    'tab-closed': 'Вкладка закрыта',
+    'tab-discarded': 'Вкладка выгружена',
+    'login-or-loading': 'Нужен вход в KEDEN',
+    'session-expired': 'Сессия закончилась',
+    session: 'KEDEN не отвечает',
+    'extension-error': 'Ошибка расширения'
+  };
+  return labels[reason] || reason || 'Нет данных';
+}
+
+function renderExtensions(installations = []) {
+  const body = $('#extensionsBody');
+  body.replaceChildren();
+  for (const installation of installations) {
+    const row = document.createElement('tr');
+    cell(row, String(installation.installationId || '').slice(0, 8) || '—');
+    cell(row, dateTime(installation.lastSeenAt));
+    const online = cell(row, installation.online ? 'На связи' : 'Нет сигнала');
+    online.className = installation.online ? 'state ok' : 'state wait';
+    const keden = cell(row, extensionState(installation.lastState?.reason));
+    keden.className = installation.lastState?.ok ? 'state ok' : 'state wait';
+    cell(row, installation.lastState?.version || '—');
+    cell(row, installation.sampleCount || 0);
+    body.append(row);
+  }
+  if (!installations.length) {
+    const row = document.createElement('tr');
+    const empty = cell(row, 'Сигналы от расширений ещё не поступали.', 'emptyRow');
+    empty.colSpan = 6;
+    body.append(row);
+  }
+}
+
+function renderAdminProbes(items = []) {
+  const body = $('#adminProbesBody');
+  body.replaceChildren();
+  for (const item of items) {
+    const row = document.createElement('tr');
+    cell(row, dateTime(item.visitedAt));
+    cell(row, item.visitorId || '—');
+    cell(row, item.browser || '—');
+    cell(row, item.platform || '—');
+    body.append(row);
+  }
+  if (!items.length) {
+    const row = document.createElement('tr');
+    const empty = cell(row, 'На обычный адрес /admin/ пока никто не заходил.', 'emptyRow');
+    empty.colSpan = 4;
+    body.append(row);
+  }
+}
+
 function render(data) {
   const metrics = data.metrics || {};
   setText('usersTotal', metrics.users || 0);
@@ -152,14 +207,41 @@ function render(data) {
   setText('usersCount', `Всего: ${data.users?.length || 0}`);
   setText('paymentsCount', `Заявок: ${data.payments?.length || 0}`);
   setText('supportCount', `Открытых: ${metrics.openSupportTickets || 0}`);
+  setText('adminProbesCount', `Заходов: ${data.adminProbes?.length || 0}`);
   setText('adminIdentity', data.admin?.email || '');
   renderActivity(data.dailyActivity);
   renderUsers(data.users);
   renderPayments(data.payments);
   renderSupport(data.supportTickets);
+  renderExtensions(data.extensionDiagnostics);
+  renderAdminProbes(data.adminProbes);
   $('#authView').hidden = true;
   $('#dashboard').hidden = false;
   $('#refreshBtn').hidden = false;
+}
+
+async function downloadExtensionDiagnostics() {
+  const button = $('#downloadExtensionDiagnostics');
+  button.disabled = true;
+  try {
+    const response = await fetch(`${API}/admin/extension-diagnostics`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ credential })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `KEDEN44-extension-journal-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) {
+    setText('authStatus', `Не удалось скачать журнал: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function loadDashboard() {
@@ -204,5 +286,6 @@ function initializeGoogle() {
 }
 
 $('#refreshBtn').addEventListener('click', loadDashboard);
+$('#downloadExtensionDiagnostics').addEventListener('click', downloadExtensionDiagnostics);
 initializeGoogle();
 if (credential) loadDashboard();
