@@ -41,16 +41,16 @@
   "ui": {
     "promotions": [
       {
-        "id": "example-product",
-        "visible": false,
+        "id": "test-keden44-promo",
+        "visible": true,
         "placement": "footer",
-        "kind": "product",
-        "badge": "От KEDEN44",
-        "title": "Название продукта",
-        "text": "Короткое описание без данных пользователя.",
+        "kind": "ad",
+        "badge": "Реклама",
+        "title": "KEDEN44 Monitor",
+        "text": "Следите за статусами ДТ и получайте уведомления в Telegram.",
         "imageUrl": "https://keden44.com/assets/keden44-mark.png",
-        "linkUrl": "https://keden44.com/",
-        "linkLabel": "Подробнее",
+        "linkUrl": "https://keden44.com/monitor/",
+        "linkLabel": "Открыть монитор",
         "maxHeight": 180
       }
     ]

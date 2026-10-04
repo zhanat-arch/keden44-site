@@ -20,6 +20,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       addBtn: $('#addBtn'), importPdfBtn: $('#importPdfBtn'), pdfInput: $('#pdfInput'), jsonInput: $('#jsonInput'), importJsonBtn: $('#importJsonBtn'), notifyBtn: $('#notifyBtn'), telegramBtn: $('#telegramBtn'), telegramStatus: $('#telegramStatus'), googleSignIn: $('#googleSignIn'), googleSetupState: $('#googleSetupState'), telegramSetupState: $('#telegramSetupState'), serverSetupState: $('#serverSetupState'), exportBtn: $('#exportBtn'), checkAllBtn: $('#checkAllBtn'),
       searchInput: $('#searchInput'), declarantBinFilter: $('#declarantBinFilter'), scopeSelect: $('#scopeSelect'), releasePeriod: $('#releasePeriod'), resetFiltersBtn: $('#resetFiltersBtn'), workInterval: $('#workInterval'), releasedInterval: $('#releasedInterval'), recentDays: $('#recentDays'), conditionalDays: $('#conditionalDays'), checkDueBtn: $('#checkDueBtn'), line: $('#line'), summary: $('#summary'),
       notifyReleased: $('#notifyReleased'), notifyStatusChanges: $('#notifyStatusChanges'), notifyDataChanges: $('#notifyDataChanges'), notifyProblems: $('#notifyProblems'), notifyConditional: $('#notifyConditional'),
+      telegramShowDeclarant: $('#telegramShowDeclarant'), telegramShowTransport: $('#telegramShowTransport'),
       showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'), helpCoworkers: $('#helpCoworkers'), helpQrChecks: $('#helpQrChecks'),
       syncState: $('#syncState'), entryDialog: $('#entryDialog'), entryForm: $('#entryForm'), dialogTitle: $('#dialogTitle'), closeDialogBtn: $('#closeDialogBtn'), cancelBtn: $('#cancelBtn'),
       extensionDialog: $('#extensionDialog'), extensionForm: $('#extensionForm'), closeExtensionBtn: $('#closeExtensionBtn'), cancelExtensionBtn: $('#cancelExtensionBtn'),
@@ -157,7 +158,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return output;
     }
     function loadSettings() {
-      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, helpCoworkers: true, helpQrChecks: true, testPresetVersion: TEST_PRESET_VERSION };
+      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, telegramShowDeclarant: false, telegramShowTransport: false, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, helpCoworkers: true, helpQrChecks: true, testPresetVersion: TEST_PRESET_VERSION };
       try {
         const saved = store && store.getItem(SETTINGS_KEY);
         if (!saved) return defaults;
@@ -1166,6 +1167,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       els.notifyDataChanges.checked = settings.notifyDataChanges;
       els.notifyProblems.checked = settings.notifyProblems;
       els.notifyConditional.checked = settings.notifyConditional;
+      els.telegramShowDeclarant.checked = settings.telegramShowDeclarant;
+      els.telegramShowTransport.checked = settings.telegramShowTransport;
       els.showDeclarant.checked = settings.showDeclarant;
       els.showTransport.checked = settings.showTransport;
       els.showGoods.checked = settings.showGoods;
@@ -1189,6 +1192,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
         notifyDataChanges: els.notifyDataChanges.checked,
         notifyProblems: els.notifyProblems.checked,
         notifyConditional: els.notifyConditional.checked,
+        telegramShowDeclarant: els.telegramShowDeclarant.checked,
+        telegramShowTransport: els.telegramShowTransport.checked,
         showDeclarant: els.showDeclarant.checked,
         showTransport: els.showTransport.checked,
         showGoods: els.showGoods.checked,
@@ -1584,7 +1589,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     els.notifyDataChanges.addEventListener('change', updateSettings);
     els.notifyProblems.addEventListener('change', updateSettings);
     els.notifyConditional.addEventListener('change', updateSettings);
-    for (const input of [els.showDeclarant, els.showTransport, els.showGoods, els.showSender, els.showReceiver, els.privacyMode, els.helpCoworkers, els.helpQrChecks]) input.addEventListener('change', updateSettings);
+    for (const input of [els.telegramShowDeclarant, els.telegramShowTransport, els.showDeclarant, els.showTransport, els.showGoods, els.showSender, els.showReceiver, els.privacyMode, els.helpCoworkers, els.helpQrChecks]) input.addEventListener('change', updateSettings);
     els.notifyBtn.addEventListener('click', enableNotifications);
     els.telegramBtn.addEventListener('click', connectTelegram);
     els.googleSignIn?.addEventListener('click', event => {
