@@ -3,6 +3,8 @@ const GOOGLE_CLIENT_ID = '57476430330-a9mvuo5sh4gec820jtd1u5ldcgrm8tpn.apps.goog
 const TOKEN_KEY = 'keden44-admin-google-token';
 const $ = selector => document.querySelector(selector);
 let credential = sessionStorage.getItem(TOKEN_KEY) || '';
+let runtimeConfig = null;
+let selectedPromotion = -1;
 
 function setText(id, value) {
   const element = document.getElementById(id);
@@ -188,6 +190,187 @@ function renderAdminProbes(items = []) {
   }
 }
 
+function configText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.value = value ?? '';
+}
+
+function selectedBlock() {
+  return runtimeConfig?.ui?.promotions?.[selectedPromotion] || null;
+}
+
+function readPromotionEditor() {
+  const block = selectedBlock();
+  if (!block) return;
+  block.visible = $('#promotionVisible').checked;
+  block.placement = $('#promotionPlacement').value;
+  block.kind = $('#promotionKind').value;
+  block.badge = $('#promotionBadge').value.trim();
+  block.title = $('#promotionTitle').value.trim();
+  block.text = $('#promotionText').value.trim();
+  block.imageUrl = $('#promotionImageUrl').value.trim();
+  block.linkUrl = $('#promotionLinkUrl').value.trim();
+  block.linkLabel = $('#promotionLinkLabel').value.trim();
+  block.maxHeight = Math.max(80, Math.min(600, Number($('#promotionMaxHeight').value) || 180));
+}
+
+function renderPromotionPreview() {
+  readPromotionEditor();
+  const block = selectedBlock();
+  const preview = $('#promotionPreview');
+  preview.replaceChildren();
+  if (!block) return;
+  preview.className = `promotionPreview kind-${block.kind || 'notice'}`;
+  const badge = document.createElement('small');
+  badge.textContent = block.badge || (block.kind === 'ad' ? 'Реклама' : 'Новости');
+  const content = document.createElement('div');
+  if (block.imageUrl) {
+    const image = document.createElement('img');
+    image.src = block.imageUrl;
+    image.alt = '';
+    content.append(image);
+  }
+  const copy = document.createElement('div');
+  const title = document.createElement('strong');
+  title.textContent = block.title || 'Заголовок блока';
+  const description = document.createElement('p');
+  description.textContent = block.text || 'Текст появится здесь.';
+  copy.append(title, description);
+  if (block.linkUrl) {
+    const link = document.createElement('span');
+    link.className = 'previewLink';
+    link.textContent = block.linkLabel || 'Подробнее';
+    copy.append(link);
+  }
+  content.append(copy);
+  preview.append(badge, content);
+}
+
+function renderPromotionEditor() {
+  const block = selectedBlock();
+  $('#emptyPromotion').hidden = Boolean(block);
+  $('#promotionFields').hidden = !block;
+  if (!block) return;
+  $('#promotionVisible').checked = block.visible !== false;
+  configText('promotionPlacement', block.placement || 'footer');
+  configText('promotionKind', block.kind || 'notice');
+  configText('promotionBadge', block.badge);
+  configText('promotionTitle', block.title);
+  configText('promotionText', block.text);
+  configText('promotionImageUrl', block.imageUrl);
+  configText('promotionLinkUrl', block.linkUrl);
+  configText('promotionLinkLabel', block.linkLabel);
+  configText('promotionMaxHeight', block.maxHeight || 180);
+  $('#movePromotionUp').disabled = selectedPromotion <= 0;
+  $('#movePromotionDown').disabled = selectedPromotion >= runtimeConfig.ui.promotions.length - 1;
+  renderPromotionPreview();
+}
+
+function renderPromotionList() {
+  const list = $('#promotionList');
+  list.replaceChildren();
+  const items = runtimeConfig?.ui?.promotions || [];
+  items.forEach((block, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `promotionListItem${index === selectedPromotion ? ' selected' : ''}`;
+    const copy = document.createElement('span');
+    const title = document.createElement('strong');
+    title.textContent = block.title || 'Без заголовка';
+    const meta = document.createElement('small');
+    meta.textContent = `${block.badge || 'Без метки'} · ${block.visible === false ? 'выключен' : 'включён'}`;
+    copy.append(title, meta);
+    const order = document.createElement('b');
+    order.textContent = String(index + 1);
+    button.append(order, copy);
+    button.addEventListener('click', () => {
+      readPromotionEditor();
+      selectedPromotion = index;
+      renderPromotionList();
+      renderPromotionEditor();
+    });
+    list.append(button);
+  });
+  if (!items.length) {
+    const empty = document.createElement('p');
+    empty.className = 'listEmpty';
+    empty.textContent = 'Блоков пока нет.';
+    list.append(empty);
+  }
+}
+
+function renderModules() {
+  const list = $('#moduleList');
+  list.replaceChildren();
+  const labels = {
+    attachment: 'Прикрепление файлов', monitor: 'Монитор', notifications: 'Уведомления', promotions: 'Контентные блоки',
+    'dt-download': 'Загрузка ДТ', 'kdt-download': 'Загрузка КДТ', 'payment-preview': 'Снимок платежей',
+    'request-download': 'Загрузка запроса', 'frro-download': 'Загрузка ФРРО'
+  };
+  for (const module of runtimeConfig?.modules || []) {
+    const label = document.createElement('label');
+    label.className = 'toggle moduleToggle';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = module.enabled !== false;
+    input.addEventListener('change', () => { module.enabled = input.checked; });
+    const text = document.createElement('span');
+    text.textContent = labels[module.id] || module.id;
+    label.append(input, text);
+    list.append(label);
+  }
+}
+
+function renderRuntimeConfig(config) {
+  runtimeConfig = structuredClone(config);
+  runtimeConfig.ui ||= {};
+  runtimeConfig.ui.promotions ||= [];
+  runtimeConfig.modules ||= [];
+  selectedPromotion = runtimeConfig.ui.promotions.length ? 0 : -1;
+  setText('configVersion', `Версия: ${runtimeConfig.version || 1}`);
+  renderPromotionList();
+  renderPromotionEditor();
+  renderModules();
+}
+
+async function configRequest(path, payload = {}) {
+  const response = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ credential, ...payload })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+async function loadRuntimeConfig() {
+  const data = await configRequest('/admin/config/get');
+  renderRuntimeConfig(data.config);
+  setText('configStatus', 'Конфигурация загружена с сервера.');
+}
+
+async function saveRuntimeConfig() {
+  readPromotionEditor();
+  const button = $('#saveConfig');
+  button.disabled = true;
+  setText('configStatus', 'Сохраняю...');
+  try {
+    const data = await configRequest('/admin/config/save', { config: runtimeConfig });
+    const selectedId = selectedBlock()?.id;
+    renderRuntimeConfig(data.config);
+    const restoredIndex = runtimeConfig.ui.promotions.findIndex(item => item.id === selectedId);
+    if (restoredIndex >= 0) selectedPromotion = restoredIndex;
+    renderPromotionList();
+    renderPromotionEditor();
+    setText('configStatus', `Сохранено. Новая версия: ${data.config.version}. Расширения получат её не позднее чем через 5 минут.`);
+  } catch (error) {
+    setText('configStatus', `Не удалось сохранить: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function render(data) {
   const metrics = data.metrics || {};
   setText('usersTotal', metrics.users || 0);
@@ -257,6 +440,7 @@ async function loadDashboard() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
     render(data);
+    await loadRuntimeConfig();
   } catch (error) {
     if (['admin_only', 'Google не подтвердил аккаунт'].includes(error.message)) {
       credential = '';
@@ -287,5 +471,50 @@ function initializeGoogle() {
 
 $('#refreshBtn').addEventListener('click', loadDashboard);
 $('#downloadExtensionDiagnostics').addEventListener('click', downloadExtensionDiagnostics);
+$('#saveConfig').addEventListener('click', saveRuntimeConfig);
+$('#addPromotion').addEventListener('click', () => {
+  readPromotionEditor();
+  runtimeConfig.ui.promotions.push({
+    id: `block-${Date.now()}`,
+    visible: true,
+    placement: 'footer',
+    kind: 'notice',
+    badge: 'Новости',
+    title: 'Новый блок',
+    text: '',
+    imageUrl: '',
+    linkUrl: '',
+    linkLabel: 'Подробнее',
+    maxHeight: 180
+  });
+  selectedPromotion = runtimeConfig.ui.promotions.length - 1;
+  renderPromotionList();
+  renderPromotionEditor();
+});
+$('#deletePromotion').addEventListener('click', () => {
+  if (!selectedBlock() || !confirm('Удалить этот блок из конфигурации?')) return;
+  runtimeConfig.ui.promotions.splice(selectedPromotion, 1);
+  selectedPromotion = Math.min(selectedPromotion, runtimeConfig.ui.promotions.length - 1);
+  renderPromotionList();
+  renderPromotionEditor();
+});
+$('#movePromotionUp').addEventListener('click', () => {
+  readPromotionEditor();
+  if (selectedPromotion <= 0) return;
+  [runtimeConfig.ui.promotions[selectedPromotion - 1], runtimeConfig.ui.promotions[selectedPromotion]] = [runtimeConfig.ui.promotions[selectedPromotion], runtimeConfig.ui.promotions[selectedPromotion - 1]];
+  selectedPromotion -= 1;
+  renderPromotionList();
+  renderPromotionEditor();
+});
+$('#movePromotionDown').addEventListener('click', () => {
+  readPromotionEditor();
+  if (selectedPromotion >= runtimeConfig.ui.promotions.length - 1) return;
+  [runtimeConfig.ui.promotions[selectedPromotion + 1], runtimeConfig.ui.promotions[selectedPromotion]] = [runtimeConfig.ui.promotions[selectedPromotion], runtimeConfig.ui.promotions[selectedPromotion + 1]];
+  selectedPromotion += 1;
+  renderPromotionList();
+  renderPromotionEditor();
+});
+$('#promotionEditor').addEventListener('input', renderPromotionPreview);
+$('#promotionEditor').addEventListener('change', renderPromotionPreview);
 initializeGoogle();
 if (credential) loadDashboard();

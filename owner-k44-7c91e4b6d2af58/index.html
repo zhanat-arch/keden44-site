@@ -47,6 +47,45 @@
         </div>
       </section>
 
+      <section class="band configBand">
+        <div class="sectionTitle">
+          <div><h2>Контент расширения</h2><p>Новости и рекламные блоки приходят с сервера. Расширение проверяет изменения каждые 5 минут.</p></div>
+          <div class="configHeaderActions"><span id="configVersion">Версия: —</span><button id="saveConfig" class="primary" type="button">Сохранить на сервере</button></div>
+        </div>
+        <div class="configWorkspace">
+          <aside class="configListPane">
+            <div class="paneTitle"><strong>Блоки</strong><button id="addPromotion" type="button">Добавить</button></div>
+            <div id="promotionList" class="promotionList"></div>
+            <div class="modulePanel">
+              <strong>Модули</strong>
+              <div id="moduleList" class="moduleList"></div>
+            </div>
+          </aside>
+          <form id="promotionEditor" class="promotionEditor">
+            <div id="emptyPromotion" class="editorEmpty">Выберите блок слева или создайте новый.</div>
+            <div id="promotionFields" hidden>
+              <div class="editorToolbar">
+                <label class="toggle"><input id="promotionVisible" type="checkbox"><span>Показывать блок</span></label>
+                <div><button id="movePromotionUp" type="button">Выше</button><button id="movePromotionDown" type="button">Ниже</button><button id="deletePromotion" class="danger" type="button">Удалить</button></div>
+              </div>
+              <div class="fieldGrid">
+                <label>Место<select id="promotionPlacement"><option value="top">Сверху</option><option value="content">В середине</option><option value="footer">Внизу</option></select></label>
+                <label>Тип<select id="promotionKind"><option value="notice">Новость</option><option value="ad">Реклама</option><option value="partner">Партнёр</option><option value="product">Наш продукт</option></select></label>
+                <label>Метка<input id="promotionBadge" maxlength="40" placeholder="Новости"></label>
+                <label>Высота картинки<input id="promotionMaxHeight" type="number" min="80" max="600" step="10"></label>
+                <label class="wide">Заголовок<input id="promotionTitle" maxlength="100" placeholder="Последние изменения"></label>
+                <label class="wide">Текст<textarea id="promotionText" maxlength="700" rows="4"></textarea></label>
+                <label class="wide">Картинка на keden44.com<input id="promotionImageUrl" type="url" maxlength="500" placeholder="https://keden44.com/assets/banner.png"></label>
+                <label class="wide">Ссылка<input id="promotionLinkUrl" type="url" maxlength="500" placeholder="https://..."></label>
+                <label class="wide">Текст ссылки<input id="promotionLinkLabel" maxlength="60" placeholder="Подробнее"></label>
+              </div>
+              <div class="promotionPreview" id="promotionPreview" aria-label="Предпросмотр блока"></div>
+            </div>
+          </form>
+        </div>
+        <p id="configStatus" class="configStatus" role="status"></p>
+      </section>
+
       <section class="band">
         <div class="sectionTitle">
           <div><h2>Расширения KEDEN44</h2><p>Минутные сигналы показывают, работает ли расширение и доступна ли сессия KEDEN.</p></div>
