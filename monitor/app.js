@@ -21,9 +21,14 @@ import { createTelegramClient } from './modules/telegram/client.js';
       searchInput: $('#searchInput'), declarantBinFilter: $('#declarantBinFilter'), scopeSelect: $('#scopeSelect'), releasePeriod: $('#releasePeriod'), resetFiltersBtn: $('#resetFiltersBtn'), workInterval: $('#workInterval'), releasedInterval: $('#releasedInterval'), recentDays: $('#recentDays'), conditionalDays: $('#conditionalDays'), checkDueBtn: $('#checkDueBtn'), line: $('#line'), summary: $('#summary'),
       notifyReleased: $('#notifyReleased'), notifyStatusChanges: $('#notifyStatusChanges'), notifyDataChanges: $('#notifyDataChanges'), notifyProblems: $('#notifyProblems'), notifyConditional: $('#notifyConditional'),
       showDeclarant: $('#showDeclarant'), showTransport: $('#showTransport'), showGoods: $('#showGoods'), showSender: $('#showSender'), showReceiver: $('#showReceiver'), privacyMode: $('#privacyMode'), helpCoworkers: $('#helpCoworkers'), helpQrChecks: $('#helpQrChecks'),
-      entryDialog: $('#entryDialog'), entryForm: $('#entryForm'), dialogTitle: $('#dialogTitle'), closeDialogBtn: $('#closeDialogBtn'), cancelBtn: $('#cancelBtn'),
+      syncState: $('#syncState'), entryDialog: $('#entryDialog'), entryForm: $('#entryForm'), dialogTitle: $('#dialogTitle'), closeDialogBtn: $('#closeDialogBtn'), cancelBtn: $('#cancelBtn'),
       extensionDialog: $('#extensionDialog'), extensionForm: $('#extensionForm'), closeExtensionBtn: $('#closeExtensionBtn'), cancelExtensionBtn: $('#cancelExtensionBtn'),
       notificationsDialog: $('#notificationsDialog'), notificationsTitle: $('#notificationsTitle'), notificationsList: $('#notificationsList'), closeNotificationsBtn: $('#closeNotificationsBtn'),
+      clientRecipientsBtn: $('#clientRecipientsBtn'), clientsDialog: $('#clientsDialog'), closeClientsBtn: $('#closeClientsBtn'), newClientBtn: $('#newClientBtn'),
+      clientRecipientsList: $('#clientRecipientsList'), clientRecipientForm: $('#clientRecipientForm'), clientSubscriptionRows: $('#clientSubscriptionRows'),
+      addClientBinBtn: $('#addClientBinBtn'), clientFormStatus: $('#clientFormStatus'), clientInviteActions: $('#clientInviteActions'),
+      openClientInvite: $('#openClientInvite'), copyClientInvite: $('#copyClientInvite'), deleteClientBtn: $('#deleteClientBtn'),
+      accessNotice: $('#accessNotice'), accessNoticeTitle: $('#accessNoticeTitle'), accessNoticeText: $('#accessNoticeText'), accessNoticeAction: $('#accessNoticeAction'),
       changed: $('#changed'), work: $('#work'), conditional: $('#conditional'), released: $('#released'), archive: $('#archive'), archiveMoreBtn: $('#archiveMoreBtn'), cc: $('#cc'), cw: $('#cw'), ccond: $('#ccond'), cr: $('#cr'), ca: $('#ca')
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
@@ -44,6 +49,63 @@ import { createTelegramClient } from './modules/telegram/client.js';
     let googleCloudLoaded = false;
     let telegramConnected = false;
     let serverWatchCount = 0;
+    let renderTimer;
+    let lastRenderAt = 0;
+    let clientRecipients = [];
+    let selectedClientRecipientId = '';
+    let accessState = null;
+    let accessCheckedAt = 0;
+    const CLIENT_EVENTS = [
+      ['release', 'Выпуск'], ['conditional', 'Условный выпуск'], ['secured', 'Под обеспечение'], ['cleared', 'Очищена'],
+      ['inspectionAssigned', 'Назначен досмотр'], ['inspectionCompleted', 'Досмотр завершён'], ['documentRequest', 'Важный запрос документов']
+    ];
+    const DEFAULT_CLIENT_EVENTS = { release: true, conditional: true, secured: true, cleared: true, inspectionAssigned: false, inspectionCompleted: false, documentRequest: false };
+
+    function showSyncState(state, message) {
+      if (!els.syncState) return;
+      els.syncState.hidden = false;
+      els.syncState.dataset.state = state;
+      els.syncState.textContent = message;
+    }
+
+    function accessDate(value) {
+      const date = new Date(value);
+      return Number.isFinite(date.getTime()) ? date.toLocaleDateString('ru-RU') : '';
+    }
+
+    function renderAccessState() {
+      if (!accessState) return;
+      const blocked = accessState.allowed === false;
+      for (const control of [els.importPdfBtn, els.addBtn, els.checkAllBtn, els.checkDueBtn, els.clientRecipientsBtn]) control.disabled = blocked;
+      els.accessNoticeAction.hidden = !['grace', 'blocked'].includes(accessState.state);
+      if (accessState.state === 'active') {
+        els.accessNoticeTitle.textContent = `Подписка активна до ${accessDate(accessState.validUntil)}`;
+        els.accessNoticeText.textContent = 'Серверная проверка и синхронизация работают.';
+      } else if (accessState.state === 'grace') {
+        els.accessNoticeTitle.textContent = 'Ожидается оплата';
+        els.accessNoticeText.textContent = `Монитор продолжит работу до ${accessDate(accessState.graceUntil)}.`;
+      } else if (accessState.state === 'blocked') {
+        els.accessNoticeTitle.textContent = 'Подписка приостановлена';
+        els.accessNoticeText.textContent = 'Оплатите подписку для продолжения серверной проверки и синхронизации.';
+      } else if (accessState.state === 'device_limit') {
+        els.accessNoticeTitle.textContent = 'Лимит устройств монитора';
+        els.accessNoticeText.textContent = 'К аккаунту уже подключены три устройства.';
+      }
+    }
+
+    async function refreshAccessState(force = false) {
+      if (!googleConnected) return null;
+      if (!force && accessState && Date.now() - accessCheckedAt < 6 * 60 * 60_000) return accessState;
+      try {
+        const result = await telegram.accessStatus();
+        accessState = result.access;
+        accessCheckedAt = Date.now();
+      } catch (error) {
+        accessState = error.access || accessState;
+      }
+      renderAccessState();
+      return accessState;
+    }
 
     function loadRecords() { try { const saved = store && store.getItem(KEY); return saved ? JSON.parse(saved) : seed; } catch { return seed; } }
     function normalizeStoredRecords(items) {
@@ -112,7 +174,137 @@ import { createTelegramClient } from './modules/telegram/client.js';
     function persistentRecords() { return records.filter(record => !record.transientDuplicate); }
     function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
-    function applyKedenNotifications(items = [], { share = true } = {}) {
+
+    function knownClientBins() {
+      return [...new Set(records.flatMap(record => [record.declarantBin, record.receiverBin])
+        .map(value => String(value || '').replace(/\D/g, ''))
+        .filter(value => value.length === 12))].sort();
+    }
+
+    function addClientSubscriptionRow(subscription = {}) {
+      const row = document.createElement('div');
+      row.className = 'clientSubscriptionRow';
+      const events = { ...DEFAULT_CLIENT_EVENTS, ...(subscription.events || {}) };
+      const checks = CLIENT_EVENTS.map(([key, label]) => `<label><input type="checkbox" data-client-event="${key}"${events[key] ? ' checked' : ''}> ${label}</label>`).join('');
+      row.innerHTML = `<div class="clientSubscriptionTop"><label>БИН<input data-client-bin inputmode="numeric" maxlength="12" placeholder="12 цифр"></label><button type="button" data-remove-client-bin aria-label="Удалить БИН">Удалить</button></div><div class="clientEventChecks">${checks}</div>`;
+      const input = row.querySelector('[data-client-bin]');
+      input.value = subscription.bin || '';
+      const known = knownClientBins();
+      if (known.length) {
+        const listId = `client-bins-${Math.random().toString(36).slice(2)}`;
+        const list = document.createElement('datalist');
+        list.id = listId;
+        known.forEach(bin => { const option = document.createElement('option'); option.value = bin; list.append(option); });
+        input.setAttribute('list', listId);
+        row.append(list);
+      }
+      row.querySelector('[data-remove-client-bin]').addEventListener('click', () => {
+        if (els.clientSubscriptionRows.children.length > 1) row.remove();
+        else input.value = '';
+      });
+      els.clientSubscriptionRows.append(row);
+    }
+
+    function resetClientRecipientForm(recipient = null) {
+      selectedClientRecipientId = recipient?.id || '';
+      els.clientRecipientForm.reset();
+      els.clientRecipientForm.elements.id.value = selectedClientRecipientId;
+      els.clientRecipientForm.elements.name.value = recipient?.name || '';
+      els.clientRecipientForm.elements.phone.value = recipient?.phone || '';
+      els.clientRecipientForm.elements.enabled.checked = recipient?.enabled !== false;
+      els.clientSubscriptionRows.replaceChildren();
+      const subscriptions = recipient?.subscriptions?.length ? recipient.subscriptions : [{ bin: knownClientBins()[0] || '', events: DEFAULT_CLIENT_EVENTS }];
+      subscriptions.forEach(addClientSubscriptionRow);
+      els.clientInviteActions.hidden = true;
+      els.clientFormStatus.textContent = recipient?.status === 'connected' ? 'Telegram подтверждён.' : recipient ? 'Ожидается подтверждение номера.' : '';
+      els.deleteClientBtn.hidden = !recipient;
+      renderClientRecipientList();
+    }
+
+    function renderClientRecipientList() {
+      els.clientRecipientsList.replaceChildren();
+      if (!clientRecipients.length) {
+        const empty = document.createElement('p');
+        empty.className = 'tiny';
+        empty.textContent = 'Получателей пока нет.';
+        els.clientRecipientsList.append(empty);
+        return;
+      }
+      clientRecipients.forEach(recipient => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'clientRecipientItem';
+        button.setAttribute('aria-current', String(recipient.id === selectedClientRecipientId));
+        const name = document.createElement('strong');
+        name.textContent = recipient.name;
+        const detail = document.createElement('small');
+        detail.textContent = `${recipient.phone} · БИН: ${recipient.subscriptions.length} · ${recipient.status === 'connected' ? 'подключён' : 'ожидает'}`;
+        button.append(name, detail);
+        button.addEventListener('click', () => resetClientRecipientForm(recipient));
+        els.clientRecipientsList.append(button);
+      });
+    }
+
+    async function loadClientRecipients() {
+      if (!googleConnected) throw new Error('Сначала войдите через Google.');
+      const result = await telegram.clientRecipients();
+      clientRecipients = result.recipients || [];
+      renderClientRecipientList();
+      return clientRecipients;
+    }
+
+    async function openClientRecipients() {
+      if (typeof els.clientsDialog.showModal === 'function') els.clientsDialog.showModal();
+      else els.clientsDialog.setAttribute('open', '');
+      els.clientFormStatus.textContent = 'Загружаю получателей...';
+      try {
+        await loadClientRecipients();
+        const selected = clientRecipients.find(item => item.id === selectedClientRecipientId) || clientRecipients[0] || null;
+        resetClientRecipientForm(selected);
+      } catch (error) {
+        els.clientFormStatus.textContent = error.message || String(error);
+        resetClientRecipientForm(null);
+        els.clientFormStatus.textContent = error.message || String(error);
+      }
+    }
+
+    function clientRecipientPayload() {
+      const form = els.clientRecipientForm;
+      const subscriptions = [...els.clientSubscriptionRows.querySelectorAll('.clientSubscriptionRow')].map(row => ({
+        bin: row.querySelector('[data-client-bin]').value,
+        events: Object.fromEntries(CLIENT_EVENTS.map(([key]) => [key, row.querySelector(`[data-client-event="${key}"]`).checked]))
+      }));
+      return {
+        id: form.elements.id.value,
+        name: form.elements.name.value,
+        phone: form.elements.phone.value,
+        enabled: form.elements.enabled.checked,
+        subscriptions
+      };
+    }
+
+    async function saveClientRecipient(event) {
+      event.preventDefault();
+      els.clientFormStatus.textContent = 'Сохраняю...';
+      try {
+        const saved = await telegram.saveClientRecipient(clientRecipientPayload());
+        const invite = await telegram.createClientInvite(saved.recipient.id);
+        await loadClientRecipients();
+        resetClientRecipientForm(clientRecipients.find(item => item.id === saved.recipient.id));
+        if (invite.invite.url) {
+          els.openClientInvite.href = invite.invite.url;
+          els.clientInviteActions.hidden = false;
+          els.clientFormStatus.textContent = saved.recipient.status === 'connected'
+            ? 'Настройки сохранены. Ссылка нужна только для повторного подключения.'
+            : 'Настройки сохранены. Передайте ссылку получателю.';
+        } else {
+          els.clientFormStatus.textContent = 'Настройки сохранены. Telegram-бот временно не вернул ссылку.';
+        }
+      } catch (error) {
+        els.clientFormStatus.textContent = error.message || String(error);
+      }
+    }
+    function applyKedenNotifications(items = [], { share = true, notify = true } = {}) {
       let changedCount = 0;
       let recordsTouched = false;
       const controlBatches = new Map();
@@ -181,11 +373,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
             const timestamp = notificationTimestamp(item.deliveredAt);
             const date = Number.isNaN(timestamp) ? '' : new Date(timestamp).toLocaleString('ru-RU');
             const assignment = controlAssignmentFromNotification(item.text);
-            if (assignment) {
+            if (assignment && notify) {
               const batch = controlBatches.get(baseNumber) || { record, items: [] };
               batch.items.push({ ...assignment, date, id: item.id });
               controlBatches.set(baseNumber, batch);
-            } else {
+            } else if (notify) {
               const context = [
                 date ? `Дата: ${date}` : '',
                 record.declarant ? `Декларант: ${record.declarant}` : '',
@@ -269,7 +461,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     }
     function isRevokedStatus(status = '') { return /отозван|аннулирован/i.test(String(status)); }
     function isTerminalStatus(status = '') { return isReleased(status) || isRevokedStatus(status); }
-    function checkIntervalMs(record) { return isConditionalRelease(record.status) ? Number(settings.releasedHours || 6) * 3600000 : Number(settings.workMinutes || 15) * 60000; }
+    function checkIntervalMs(record) { return statusKind(record.status) === 'conditional' ? Number(settings.releasedHours || 6) * 3600000 : Number(settings.workMinutes || 15) * 60000; }
     function isDue(record) { if (record.archived || !record.kedenUrl || isTerminalStatus(record.status)) return false; const last = Date.parse(record.checkedAt || record.updatedAt || 0); return !last || Date.now() - last >= checkIntervalMs(record); }
     function nextCheckText(record) { if (record.archived) return 'архив'; if (isTerminalStatus(record.status)) return 'проверки завершены'; if (!record.kedenUrl) return 'нет QR'; const last = Date.parse(record.checkedAt || record.updatedAt || 0); if (!last) return 'сейчас'; const next = last + checkIntervalMs(record); return Date.now() >= next ? 'сейчас' : new Date(next).toLocaleString('ru-RU'); }
     function conditionalInfo(record) {
@@ -282,7 +474,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     }
     function conditionalNeedsAttention(record) { const info = conditionalInfo(record); return Boolean(info && info.remaining <= 7); }
     function recordNeedsAttention(record) { return Boolean(record.onInspection) || needsAttention(record) || conditionalNeedsAttention(record); }
-    function matches(record) { if (!recordMatchesQuery(record, query)) return false; if (declarantBinFilter && !String(record.declarantBin || '').includes(declarantBinFilter)) return false; if (releasePeriod !== 'all') { const date = parseReleaseDate(record.releaseDate); if (!date || Date.now() - date.getTime() > Number(releasePeriod) * 86400000) return false; } if (scope === 'active') return !record.archived; if (scope === 'changed') return recordNeedsAttention(record); if (scope === 'conditional') return !record.archived && isConditionalRelease(record.status); if (scope === 'work') return !record.archived && !recordNeedsAttention(record) && !['released', 'conditional'].includes(statusKind(record.status)); if (scope === 'released') return !record.archived && statusKind(record.status) === 'released'; return true; }
+    function matches(record) { if (!recordMatchesQuery(record, query)) return false; if (declarantBinFilter && !String(record.declarantBin || '').includes(declarantBinFilter)) return false; if (releasePeriod !== 'all') { const date = parseReleaseDate(record.releaseDate); if (!date || Date.now() - date.getTime() > Number(releasePeriod) * 86400000) return false; } if (scope === 'active') return !record.archived; if (scope === 'changed') return recordNeedsAttention(record); if (scope === 'conditional') return !record.archived && statusKind(record.status) === 'conditional'; if (scope === 'work') return !record.archived && !recordNeedsAttention(record) && !['released', 'conditional'].includes(statusKind(record.status)); if (scope === 'released') return !record.archived && statusKind(record.status) === 'released'; return true; }
     function grouped() { const out = { changed: [], work: [], conditional: [], released: [], archive: [] }; records.filter(matches).forEach(r => { if (r.archived) out.archive.push(r); else if (recordNeedsAttention(r)) out.changed.push(r); else if (statusKind(r.status) === 'conditional') out.conditional.push(r); else if (statusKind(r.status) === 'released' && isRecentRelease(r.releaseDate, settings.recentDays)) out.released.push(r); else if (statusKind(r.status) === 'released') out.archive.push(r); else out.work.push(r); }); return out; }
 
     function sortWithShipmentGroups(items, score, ascending = false) {
@@ -305,7 +497,31 @@ import { createTelegramClient } from './modules/telegram/client.js';
       });
     }
 
-    function render() { const g = grouped(); const sortedArchive = sortWithShipmentGroups(g.archive, record => submissionDateFromDtNumber(record.dtNumber)?.getTime() || new Date(record.updatedAt || 0).getTime()); const visibleArchive = sortedArchive.slice(0, archiveVisibleCount); els.summary.innerHTML = [['Всего', records.length], ['Активные', g.work.length + g.conditional.length], ['Требуют внимания', records.filter(recordNeedsAttention).length], ['Условный выпуск', records.filter(r => !r.archived && isConditionalRelease(r.status)).length], ['Выпущены', records.filter(r => isReleased(r.status)).length]].map(([label, value]) => '<div class="sum"><b>' + value + '</b><span>' + label + '</span></div>').join(''); draw(els.changed, g.changed); draw(els.work, g.work); draw(els.conditional, g.conditional, true); draw(els.released, g.released); draw(els.archive, visibleArchive, false, true); const archiveRemaining = sortedArchive.length - visibleArchive.length; els.archiveMoreBtn.hidden = archiveRemaining <= 0; els.archiveMoreBtn.textContent = archiveRemaining > 0 ? 'Показать ещё (' + archiveRemaining + ')' : ''; els.cc.textContent = g.changed.length; els.cw.textContent = g.work.length; els.ccond.textContent = g.conditional.length; els.cr.textContent = g.released.length; els.ca.textContent = g.archive.length; }
+    function render() {
+      if (renderTimer) return;
+      const delay = Math.max(0, 150 - (performance.now() - lastRenderAt));
+      renderTimer = setTimeout(() => requestAnimationFrame(() => {
+        renderTimer = null;
+        lastRenderAt = performance.now();
+        const g = grouped();
+        const sortedArchive = sortWithShipmentGroups(g.archive, record => submissionDateFromDtNumber(record.dtNumber)?.getTime() || new Date(record.updatedAt || 0).getTime());
+        const visibleArchive = sortedArchive.slice(0, archiveVisibleCount);
+        els.summary.innerHTML = [['Всего', records.length], ['Активные', g.work.length + g.conditional.length], ['Требуют внимания', records.filter(recordNeedsAttention).length], ['Условный / обеспечение', records.filter(r => !r.archived && statusKind(r.status) === 'conditional').length], ['Выпущены', records.filter(r => isReleased(r.status)).length]].map(([label, value]) => '<div class="sum"><b>' + value + '</b><span>' + label + '</span></div>').join('');
+        draw(els.changed, g.changed);
+        draw(els.work, g.work);
+        draw(els.conditional, g.conditional, true);
+        draw(els.released, g.released);
+        draw(els.archive, visibleArchive, false, true);
+        const archiveRemaining = sortedArchive.length - visibleArchive.length;
+        els.archiveMoreBtn.hidden = archiveRemaining <= 0;
+        els.archiveMoreBtn.textContent = archiveRemaining > 0 ? 'Показать ещё (' + archiveRemaining + ')' : '';
+        els.cc.textContent = g.changed.length;
+        els.cw.textContent = g.work.length;
+        els.ccond.textContent = g.conditional.length;
+        els.cr.textContent = g.released.length;
+        els.ca.textContent = g.archive.length;
+      }), delay);
+    }
     function draw(container, items, sortByDeadline = false, preserveOrder = false) {
       container.innerHTML = '';
       if (!items.length) {
@@ -848,13 +1064,12 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (!record) return;
       record.lastChecked = now();
       record.checkedAt = new Date().toISOString();
-      record.updatedAt = new Date().toISOString();
+      let visualChanged = false;
       if (!record.kedenUrl) {
         record.logs = [...(record.logs || []), now() + ' | Проверка: нет ссылки KEDEN'];
         record.history = [...(record.history || []), now() + ': нет ссылки KEDEN'];
         els.line.textContent = 'Нет ссылки KEDEN';
         saveRecords();
-        render();
         return;
       }
 
@@ -868,6 +1083,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
           const changes = diff(record, next);
           const notification = notificationForChange(previous, next, changes, settings);
           Object.assign(record, next);
+          if (firstFill || changes.length) {
+            record.updatedAt = new Date().toISOString();
+            visualChanged = true;
+          }
           record.lastProblemKey = '';
           record.logs = [...(record.logs || []), now() + ' | KEDEN проверен через ' + (data.source === 'browser' ? 'браузер' : 'прямой ответ')];
           record.history = [...(record.history || []), firstFill
@@ -893,7 +1112,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         els.line.textContent = 'Ошибка проверки: ' + error.message;
       }
       saveRecords();
-      render();
+      if (visualChanged) render();
     }
     async function checkAll() { for (const record of records.filter(r => !r.archived && r.kedenUrl && !isTerminalStatus(r.status))) await check(record.id); }
     async function checkDue(silent = false) {
@@ -1054,7 +1273,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const dtNumbers = persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber).filter(Boolean);
       if (!dtNumbers.length) return 0;
       const result = await telegram.pullOrganizationNotifications(dtNumbers);
-      return applyKedenNotifications(result.items || [], { share: false });
+      return applyKedenNotifications(result.items || [], { share: false, notify: false });
     }
     async function pushCloud() {
       if (!googleConnected || !googleCloudLoaded) return;
@@ -1071,6 +1290,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         googleConnected = true;
         googleCloudLoaded = false;
         renderGoogleProfile(result.profile);
+        await refreshAccessState();
         await pullCloudAndMerge();
         if (telegramConnected) await syncTelegramWatches();
       } catch (error) {
@@ -1100,6 +1320,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         if (result.google) {
           googleConnected = true;
           renderGoogleProfile(result.google);
+          await refreshAccessState();
           if (!googleCloudLoaded) await pullCloudAndMerge();
         }
         updateBackgroundSetup();
@@ -1126,6 +1347,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
           dtNumber: record.dtNumber,
           name: record.name,
           declarant: record.declarant,
+          declarantBin: record.declarantBin,
+          receiverBin: record.receiverBin,
           transport: record.transport,
           goods: record.goods,
           workMinutes: settings.workMinutes,
@@ -1310,6 +1533,29 @@ import { createTelegramClient } from './modules/telegram/client.js';
     els.cancelExtensionBtn.addEventListener('click', closeExtensionForm);
     els.extensionForm.addEventListener('submit', saveConditionalExtension);
     els.closeNotificationsBtn.addEventListener('click', closeRecordNotifications);
+    els.clientRecipientsBtn.addEventListener('click', () => {
+      els.clientRecipientsBtn.closest('details')?.removeAttribute('open');
+      openClientRecipients();
+    });
+    els.closeClientsBtn.addEventListener('click', () => els.clientsDialog.close());
+    els.newClientBtn.addEventListener('click', () => resetClientRecipientForm(null));
+    els.addClientBinBtn.addEventListener('click', () => addClientSubscriptionRow({ events: DEFAULT_CLIENT_EVENTS }));
+    els.clientRecipientForm.addEventListener('submit', saveClientRecipient);
+    els.copyClientInvite.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(els.openClientInvite.href);
+      els.clientFormStatus.textContent = 'Ссылка приглашения скопирована.';
+    });
+    els.deleteClientBtn.addEventListener('click', async () => {
+      if (!selectedClientRecipientId || !window.confirm('Удалить получателя и отключить его рассылку?')) return;
+      try {
+        await telegram.removeClientRecipient(selectedClientRecipientId);
+        selectedClientRecipientId = '';
+        await loadClientRecipients();
+        resetClientRecipientForm(clientRecipients[0] || null);
+      } catch (error) {
+        els.clientFormStatus.textContent = error.message || String(error);
+      }
+    });
     els.searchInput.addEventListener('input', e => { query = e.target.value; archiveVisibleCount = 20; render(); });
     els.declarantBinFilter.addEventListener('input', e => { declarantBinFilter = e.target.value.replace(/\D/g, ''); archiveVisibleCount = 20; render(); });
     els.scopeSelect.addEventListener('change', e => { scope = e.target.value; archiveVisibleCount = 20; render(); });

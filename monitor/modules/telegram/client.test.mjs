@@ -28,9 +28,12 @@ test('registers once and reuses device credentials', async () => {
   await client.connection();
   await client.sync([{ id: 'dt-1', qrId: 'ABCDEFGHIJKLMNOP' }]);
   await client.notify('Статус', 'ДТ выпущена', 'dt:released');
+  await client.accessStatus();
+  await client.saveClientRecipient({ name: 'Клиент' });
 
   assert.equal(calls.filter(call => call.url.endsWith('/register')).length, 1);
   assert.equal(calls.at(-1).body.accountId, 'account-1');
   assert.equal(calls.at(-1).body.deviceSecret, 'secret-1');
-  assert.equal(calls.at(-1).body.dedupeKey, 'dt:released');
+  assert.equal(calls.at(-1).body.recipient.name, 'Клиент');
+  assert.equal(calls.find(call => call.url.endsWith('/access/status')).body.clientType, 'monitor');
 });

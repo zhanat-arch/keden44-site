@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, dtFromFileName, isCleared, isConditionalRelease, isRecentRelease, isReleased, needsAttention, statusKind, submissionDateFromDtNumber } from './dt.js';
+import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, dtFromFileName, isCleared, isConditionalRelease, isRecentRelease, isReleased, isSecuredRelease, needsAttention, statusKind, submissionDateFromDtNumber } from './dt.js';
 
 test('reads a DT number from PDF filename', () => {
   assert.equal(dtFromFileName('55302_230626_0035613.pdf'), '55302/230626/0035613');
@@ -49,4 +49,10 @@ test('treats a cleared conditional declaration as completed', () => {
   assert.equal(isCleared('Очищена'), true);
   assert.equal(isReleased('Очищена'), true);
   assert.equal(statusKind('Очищена'), 'released');
+});
+
+test('keeps release under security in the conditional lane', () => {
+  assert.equal(isSecuredRelease('Выпущена под обеспечение'), true);
+  assert.equal(isReleased('Выпущена под обеспечение'), false);
+  assert.equal(statusKind('Выпущена под обеспечение'), 'conditional');
 });

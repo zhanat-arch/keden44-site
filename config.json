@@ -3,7 +3,7 @@
   "access": {
     "mode": "open_test",
     "title": "Бесплатное тестирование до 31 октября 2026",
-    "detail": "Все готовые функции доступны. Подписку можно оформить по акционной цене 2,5 доллара США в месяц.",
+    "detail": "До 31 декабря 2026 года подписка доступна всем по акционной цене 2,5 доллара США в месяц. С 1 января 2027 года — 5 долларов США в месяц.",
     "checkMessage": "Открытое тестирование активно до 31 октября 2026"
   },
   "links": {
@@ -55,7 +55,36 @@
       }
     ]
   },
+  "rules": {
+    "codeAliases": [
+      { "from": "02099", "to": "02017", "enabled": true },
+      { "from": "02013", "to": "09013", "enabled": true }
+    ],
+    "optionalDocumentCodes": [
+      "09025", "09026", "09034", "01041", "01091", "01095", "01154", "01206"
+    ]
+  },
+  "modules": [
+    { "id": "attachment", "enabled": true, "order": 10 },
+    { "id": "monitor", "enabled": true, "order": 20 },
+    { "id": "notifications", "enabled": true, "order": 30 },
+    { "id": "dt-download", "enabled": false, "order": 40 },
+    { "id": "kdt-download", "enabled": false, "order": 50 },
+    { "id": "payment-preview", "enabled": false, "order": 60 },
+    { "id": "request-download", "enabled": false, "order": 70 },
+    { "id": "frro-download", "enabled": false, "order": 80 },
+    { "id": "promotions", "enabled": true, "order": 90 }
+  ],
+  "scenarios": [
+    { "id": "dt-pdf", "enabled": false, "channel": "release" },
+    { "id": "kdt-pdf", "enabled": false, "channel": "release" },
+    { "id": "payment-preview", "enabled": false, "channel": "release" },
+    { "id": "request-documents", "enabled": false, "channel": "beta" },
+    { "id": "frro", "enabled": false, "channel": "beta" }
+  ],
   "price": {
-    "monthlyUsd": "2.50"
+    "monthlyUsd": "2.50",
+    "regularMonthlyUsd": "5.00",
+    "promotionEndsAt": "2026-12-31T23:59:59+06:00"
   }
 }

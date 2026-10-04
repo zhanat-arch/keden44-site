@@ -14,7 +14,12 @@ export function createTelegramClient({
       body: JSON.stringify(payload)
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    if (!response.ok || !result.ok) {
+      const error = new Error(result.error || `HTTP ${response.status}`);
+      error.code = result.error || '';
+      error.access = result.access || null;
+      throw error;
+    }
     return result;
   }
 
@@ -46,6 +51,11 @@ export function createTelegramClient({
     googleAuth: credential => authenticated('/auth/google', { credential }),
     cloudPull: () => authenticated('/cloud/pull'),
     cloudPush: (records, settings) => authenticated('/cloud/push', { records, settings }),
+    accessStatus: () => authenticated('/access/status', { clientType: 'monitor' }),
+    clientRecipients: () => authenticated('/clients/list'),
+    saveClientRecipient: recipient => authenticated('/clients/save', { recipient }),
+    removeClientRecipient: recipientId => authenticated('/clients/remove', { recipientId }),
+    createClientInvite: recipientId => authenticated('/clients/invite', { recipientId }),
     shareOrganizationNotifications: items => authenticated('/organization/notifications/share', { items }),
     pullOrganizationNotifications: dtNumbers => authenticated('/organization/notifications/pull', { dtNumbers }),
     notify: (title, body, dedupeKey) => authenticated('/notify', {

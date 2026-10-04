@@ -36,7 +36,12 @@ function schedulePoll(delay) {
 function showClaim(claim) {
   paidButton.disabled = ['searching', 'provisional', 'confirmed'].includes(claim.status);
   if (claim.status === 'confirmed') {
-    statusBox.textContent = 'Оплата подтверждена. Доступ активен.';
+    const validUntil = claim.validUntil
+      ? new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(claim.validUntil))
+      : '';
+    statusBox.textContent = validUntil
+      ? `Оплата подтверждена. Доступ активен до ${validUntil}.`
+      : 'Оплата подтверждена. Доступ активен.';
     statusBox.dataset.state = 'success';
     detailsButton.hidden = true;
     detailsForm.hidden = true;
@@ -44,7 +49,7 @@ function showClaim(claim) {
     return;
   }
   if (claim.status === 'provisional') {
-    statusBox.textContent = 'Доступ активирован. Можете пользоваться, а мы завершим проверку оплаты автоматически.';
+    statusBox.textContent = 'Данные сохранены. Доступ будет продлён после подтверждения платежа.';
     statusBox.dataset.state = 'pending';
     detailsButton.hidden = true;
     detailsForm.hidden = true;

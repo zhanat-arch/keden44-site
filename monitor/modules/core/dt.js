@@ -3,7 +3,7 @@ export function esc(value) {
 }
 
 export function isReleased(status = '') {
-  return (status.toLowerCase().includes('выпущ') && !isConditionalRelease(status)) || isCleared(status);
+  return (status.toLowerCase().includes('выпущ') && !isConditionalRelease(status) && !isSecuredRelease(status)) || isCleared(status);
 }
 
 export function isCleared(status = '') {
@@ -15,9 +15,14 @@ export function isConditionalRelease(status = '') {
   return value.includes('условн') && (value.includes('выпуск') || value.includes('выпущ'));
 }
 
+export function isSecuredRelease(status = '') {
+  const value = String(status).toLowerCase();
+  return value.includes('обеспеч') && (value.includes('выпуск') || value.includes('выпущ'));
+}
+
 export function statusKind(status = '') {
   const value = status.toLowerCase();
-  if (isConditionalRelease(value)) return 'conditional';
+  if (isConditionalRelease(value) || isSecuredRelease(value)) return 'conditional';
   if (value.includes('выпущ') || isCleared(value)) return 'released';
   if (value.includes('нужна проверка') || value.includes('нужна основная') || value.includes('отказ') || value.includes('ошиб') || value.includes('аннулир') || value.includes('отклон')) return 'problem';
   return 'work';
