@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "access": {
     "mode": "open_test",
     "title": "Бесплатное тестирование до 31 октября 2026",
@@ -41,16 +41,16 @@
   "ui": {
     "promotions": [
       {
-        "id": "test-keden44-promo",
+        "id": "keden44-latest-news",
         "visible": true,
         "placement": "footer",
-        "kind": "ad",
-        "badge": "Реклама",
-        "title": "KEDEN44 Monitor",
-        "text": "Следите за статусами ДТ и получайте уведомления в Telegram.",
+        "kind": "notice",
+        "badge": "Новости",
+        "title": "Последние изменения",
+        "text": "Панель стала компактнее, настройки обновляются с сервера, а цены подписки теперь отображаются в тенге.",
         "imageUrl": "https://keden44.com/assets/keden44-mark.png",
-        "linkUrl": "https://keden44.com/monitor/",
-        "linkLabel": "Открыть монитор",
+        "linkUrl": "https://keden44.com/extension/",
+        "linkLabel": "Подробнее о расширении",
         "maxHeight": 180
       }
     ]
