@@ -29,7 +29,6 @@ window.addEventListener('appinstalled', () => {
   installButton.disabled = true;
   installPrompt = undefined;
 });
-
 document.querySelectorAll('.compactControls').forEach(panel => panel.removeAttribute('open'));
 
 let tooltipTimer;
@@ -157,3 +156,4 @@ document.querySelector('#shareMonitorBtn')?.addEventListener('click', async () =
     }
   } catch {}
 });
+
