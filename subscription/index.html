@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/subscription.css">
   <link rel="stylesheet" href="/subscription-flow.css">
+  <style>[hidden]{display:none!important}</style>
 </head>
 <body>
   <header class="site-header"><a class="brand" href="/"><img src="/assets/keden44-mark.png" alt="" width="38" height="38"><span>KEDEN44</span></a><nav><a href="/extension/">Расширение</a><a href="/monitor/">Монитор</a><a href="/guide.html">Инструкция</a></nav></header>
@@ -20,7 +21,7 @@
     </section>
     <section class="price-band" aria-labelledby="price-title">
       <div><p class="eyebrow">Акционная цена</p><h2 id="price-title"><strong>1 250 ₸</strong><span>≈ 2,77 $ в месяц</span></h2></div>
-      <div class="price-copy"><p>До 31 октября 2026 года все готовые функции доступны бесплатно. С 1 ноября по 31 декабря 2026 года подписка стоит 1 250 ₸ в месяц (примерно 2,77 $). С 1 января 2027 года — 2 500 ₸ в месяц (примерно 5,55 $).</p><p class="fine-print">Boosty может провести списание в долларах США, даже если цена отображается в другой валюте. Итоговая сумма в тенге зависит от курса и условий банка.</p><a class="button primary" href="https://boosty.to/zhanat-arch/purchase/4117186?ssource=DIRECT&amp;share=subscription_link" target="_blank" rel="noreferrer">Оформить через Boosty</a></div>
+      <div class="price-copy"><p>До 31 октября 2026 года все готовые функции доступны бесплатно. С 1 ноября по 31 декабря 2026 года подписка стоит 1 250 ₸ в месяц (примерно 2,77 $). С 1 января 2027 года — 2 500 ₸ в месяц (примерно 5,55 $).</p><p class="fine-print">Boosty может провести списание в долларах США, даже если цена отображается в другой валюте. Итоговая сумма в тенге зависит от курса и условий банка.</p><p>Для подписки и синхронизации нужен Google-аккаунт. Используйте один аккаунт в расширении и Мониторе на всех устройствах.</p><p id="subscriptionAccount" role="status">Проверяем аккаунт...</p><a class="button secondary" href="/monitor/" target="_blank" rel="noopener">Войти через Google в Мониторе</a><a id="purchaseLink" class="button primary" href="https://boosty.to/zhanat-arch/purchase/4117186?ssource=DIRECT&amp;share=subscription_link" target="_blank" rel="noreferrer" hidden>Оформить через Boosty</a><p class="fine-print">Добровольный донат можно отправить <a href="/support/">без входа в Google</a>. Донат сам по себе не оформляет подписку KEDEN44.</p></div>
       <p>Рабочий и домашний ПК можно использовать по очереди: расширение одновременно работает на одном компьютере. Монитор доступен на трёх устройствах, например на основном ПК и двух телефонах. После окончания оплаченного месяца даётся 5 дней на оплату.</p>
     </section>
     <section class="included-band">
@@ -32,7 +33,7 @@
     <section class="payment-check" aria-labelledby="payment-check-title">
       <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p>Нажмите один раз. Мы сами будем проверять поступление, повторно нажимать не нужно.</p></div>
       <div class="payment-flow">
-        <button id="paidBtn" class="button primary" type="button">Я оплатил</button>
+        <button id="paidBtn" class="button primary" type="button" disabled>Я оплатил</button>
         <p id="paymentStatus" class="payment-status" role="status">Проверка ещё не запускалась.</p>
         <button id="showPaymentDetails" class="button secondary" type="button" hidden>Указать данные платежа</button>
         <form id="paymentDetails" class="payment-details" hidden>
@@ -45,6 +46,6 @@
     </section>
   </main>
   <footer><div><strong>KEDEN44</strong><span>Независимый сервис, не являющийся частью KEDEN или КГД РК.</span></div><div class="footer-links"><a href="/privacy.html">Конфиденциальность</a><a href="/terms.html">Условия</a><a href="/support/">Поддержать проект</a></div></footer>
-  <script type="module" src="/subscription.js"></script>
+  <script type="module" src="/subscription.js?v=20261005-google"></script>
 </body>
 </html>

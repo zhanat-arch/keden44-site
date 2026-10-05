@@ -7,6 +7,32 @@ const detailsButton = document.querySelector('#showPaymentDetails');
 const detailsForm = document.querySelector('#paymentDetails');
 let pollTimer;
 let pollCount = 0;
+const purchaseLink = document.querySelector('#purchaseLink');
+const accountStatus = document.querySelector('#subscriptionAccount');
+let signedIn = false;
+
+async function checkAccount() {
+  signedIn = false;
+  purchaseLink.hidden = true;
+  paidButton.disabled = true;
+  try {
+    const device = credentials();
+    if (!device?.accountId || !device?.deviceSecret) {
+      accountStatus.textContent = 'Для подписки войдите через Google в Мониторе и вернитесь сюда.';
+      return;
+    }
+    const result = await request('/connection');
+    signedIn = Boolean(result.google?.email);
+    accountStatus.textContent = signedIn
+      ? `Аккаунт подписки: ${result.google.email}`
+      : 'Для подписки войдите через Google в Мониторе и вернитесь сюда.';
+    purchaseLink.hidden = !signedIn;
+    paidButton.disabled = !signedIn;
+    if (signedIn && localStorage.getItem(CLAIM_KEY)) await pollClaim();
+  } catch {
+    accountStatus.textContent = 'Не удалось проверить аккаунт. Обновите страницу перед оплатой.';
+  }
+}
 
 function credentials() {
   try { return JSON.parse(localStorage.getItem(DEVICE_KEY) || 'null'); }
@@ -75,6 +101,7 @@ async function pollClaim() {
 }
 
 paidButton.addEventListener('click', async () => {
+  if (!signedIn) return;
   paidButton.disabled = true;
   statusBox.textContent = 'Запускаем проверку платежа...';
   try {
@@ -112,4 +139,5 @@ detailsForm.addEventListener('submit', async event => {
   }
 });
 
-if (localStorage.getItem(CLAIM_KEY)) pollClaim();
+window.addEventListener('focus', checkAccount);
+checkAccount();
