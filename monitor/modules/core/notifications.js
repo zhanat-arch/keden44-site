@@ -56,6 +56,44 @@ export function summarizeControlAssignments(items = []) {
   };
 }
 
+export function controlsFromHistory(history = []) {
+  const controls = new Map();
+  const events = history.map((line, index) => {
+    const parts = String(line).split(': уведомление KEDEN:');
+    return { text: parts.slice(1).join(': уведомление KEDEN:'), time: notificationTimestamp(parts[0]), index };
+  }).filter(event => event.text).sort((a, b) => {
+    if (Number.isFinite(a.time) && Number.isFinite(b.time)) return a.time - b.time || a.index - b.index;
+    return a.index - b.index;
+  });
+  for (const event of events) {
+    const text = event.text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const completed = /заверш[её]н\s+(?:следующий\s+)?вид контроля/i.test(text);
+    const assignment = controlAssignmentFromNotification(text);
+    const name = completed
+      ? text.match(/заверш[её]н\s+(?:следующий\s+)?вид контроля\s+(.+?)(?=\s+(?:в отношении товаров?|по\s+ДТ)|$)/i)?.[1]
+      : assignment?.control || text.match(/контроль\s+["«](.+?)["»].*?(?:переназначен|назначен)/i)?.[1];
+    if (!name) continue;
+    const fullName = name.replace(/\s+(?:в отношении товаров?|по\s+ДТ)[\s\S]*$/i, '').replace(/[.;,\s]+$/, '').trim();
+    const goods = assignment?.goods || text.match(/в отношении товаров?\s+(.+?)\s+по\s+ДТ/i)?.[1]?.trim() || '';
+    const normalized = fullName.toLowerCase().replace(/[«»"']/g, '').replace(/ё/g, 'е');
+    let label = fullName;
+    if (/досмотр/i.test(fullName)) label = 'Досмотр';
+    else if (/ИДК|инспекционно/i.test(fullName)) label = 'ИДК';
+    else if (/экспертиз/i.test(fullName)) label = 'Экспертиза';
+    else if (/интеллектуаль|\bОИС\b/i.test(fullName)) label = 'ОИС';
+    else if (/запрет|ограничен/i.test(fullName)) label = 'Запреты';
+    else if (/платеж/i.test(fullName)) label = 'Платежи';
+    else if (/ЦЭД/i.test(fullName)) label = 'ЦЭД';
+    else if (/ГДУ|таможенн\w*\s+стоимост/i.test(fullName)) label = 'ГДУ';
+    else if (/ДГД/i.test(fullName)) label = 'ДГД';
+    else if (/ПОСТ/i.test(fullName)) label = 'ПОСТ';
+    const key = `${normalized}\u0000${goods}`;
+    // A completion without goods cannot safely close separate goods-specific controls.
+    controls.set(key, { name: fullName, label, goods, completed });
+  }
+  return [...controls.values()];
+}
+
 export function notificationForChange(previous, next, changes, settings) {
   if (!changes.length) return null;
   const name = next.name || next.dtNumber || 'ДТ';
