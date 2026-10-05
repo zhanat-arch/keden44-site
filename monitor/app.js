@@ -666,8 +666,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const controls = controlsFromHistory(record.history);
       const controlsHtml = controls.length ? '<div class="controlStates">' + controls.map(control => {
         const state = control.completed ? 'closed' : control.label === 'Досмотр' ? 'inspection' : 'open';
-        const title = control.name + (control.goods ? ' · товары ' + control.goods : '') + (control.completed ? ' · завершён' : ' · не закрыт');
-        return '<span class="controlState ' + state + '" title="' + esc(title) + '"><b>' + esc(control.label) + '</b>' + (control.goods ? '<small>тов. ' + esc(control.goods) + '</small>' : '') + '<small>' + (control.completed ? 'Закрыт' : 'Не закрыт') + '</small></span>';
+        const title = control.label + (control.completed ? ' · завершён' : ' · не закрыт');
+        return '<span class="controlState ' + state + '" title="' + esc(title) + '"><b>' + esc(control.label) + '</b><small>' + (control.completed ? 'Закрыт' : 'Не закрыт') + '</small></span>';
       }).join('') + '</div>' : '';
       const noteHtml = record.specialistNote ? '<div class="specialistNote privateData"><b>Заметка:</b> ' + esc(record.specialistNote) + '</div>' : '';
       const noteEditorHtml = '<div class="cardNoteEditor" data-note-editor hidden><input type="text" maxlength="160" value="' + esc(record.specialistNote || '') + '" placeholder="Краткая заметка"><button type="button" data-note-save>OK</button></div>';

@@ -74,24 +74,27 @@ export function controlsFromHistory(history = []) {
       : assignment?.control || text.match(/контроль\s+["«](.+?)["»].*?(?:переназначен|назначен)/i)?.[1];
     if (!name) continue;
     const fullName = name.replace(/\s+(?:в отношении товаров?|по\s+ДТ)[\s\S]*$/i, '').replace(/[.;,\s]+$/, '').trim();
-    const goods = assignment?.goods || text.match(/в отношении товаров?\s+(.+?)\s+по\s+ДТ/i)?.[1]?.trim() || '';
     const normalized = fullName.toLowerCase().replace(/[«»"']/g, '').replace(/ё/g, 'е');
     let label = fullName;
     if (/досмотр/i.test(fullName)) label = 'Досмотр';
     else if (/ИДК|инспекционно/i.test(fullName)) label = 'ИДК';
     else if (/экспертиз/i.test(fullName)) label = 'Экспертиза';
-    else if (/интеллектуаль|\bОИС\b/i.test(fullName)) label = 'ОИС';
+    else if (/интеллектуаль|ОИС/i.test(fullName)) label = 'ОИС';
     else if (/запрет|ограничен/i.test(fullName)) label = 'Запреты';
     else if (/платеж/i.test(fullName)) label = 'Платежи';
     else if (/ЦЭД/i.test(fullName)) label = 'ЦЭД';
     else if (/ГДУ|таможенн\w*\s+стоимост/i.test(fullName)) label = 'ГДУ';
     else if (/ДГД/i.test(fullName)) label = 'ДГД';
     else if (/ПОСТ/i.test(fullName)) label = 'ПОСТ';
-    const key = `${normalized}\u0000${goods}`;
-    // A completion without goods cannot safely close separate goods-specific controls.
-    controls.set(key, { name: fullName, label, goods, completed });
+    if (!['Досмотр', 'ИДК', 'Экспертиза', 'ОИС', 'ГДУ'].includes(label)) continue;
+    controls.set(normalized, { name: fullName, label, completed });
   }
-  return [...controls.values()];
+  const groups = new Map();
+  for (const control of controls.values()) {
+    const existing = groups.get(control.label);
+    groups.set(control.label, { ...control, completed: control.completed && (existing?.completed ?? true) });
+  }
+  return [...groups.values()];
 }
 
 export function notificationForChange(previous, next, changes, settings) {
