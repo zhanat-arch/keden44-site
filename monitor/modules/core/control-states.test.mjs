@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { controlsFromHistory } from './notifications.js';
 
+test('final release overrides missing completion notices except expertise', () => {
+  const history = ['ГДУ', 'ИДК', 'Таможенный досмотр', 'Экспертиза', 'ОИС'].map(name =>
+    `05.10.2026 15:00: уведомление KEDEN: Назначен следующий вид контроля ${name}. Исполнитель: Иванов`);
+  const controls = controlsFromHistory(history, 'Выпущена');
+  assert.equal(controls.length, 5);
+  assert.ok(controls.filter(control => control.label !== 'Экспертиза').every(control => control.completed));
+  assert.equal(controls.find(control => control.label === 'Экспертиза').completed, false);
+  for (const status of ['Условно выпущена', 'Выпуск под обеспечение']) {
+    assert.ok(controlsFromHistory(history, status).every(control => !control.completed));
+  }
+  assert.ok(controlsFromHistory(history, 'Очищена').every(control => control.completed));
+});
+
 test('hides DGD and restrictions on cards', () => {
   const controls = controlsFromHistory([
     '05.10.2026 15:00: уведомление KEDEN: Назначен следующий вид контроля Проверка документов и сведений (ДГД). Исполнитель: Иванов',

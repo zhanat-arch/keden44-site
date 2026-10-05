@@ -662,9 +662,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const kedenEventHtml = record.lastKedenNotification
         ? '<button class="kedenEvent' + (unreadNotifications ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span class="kedenEventText"><b>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</b>' + (workflowText ? '<i>' + esc(workflowText) + '</i>' : '') + conditionalRequestHint + '</span><small>Смотреть все уведомления' + unreadBadge + '</small></button>'
         : '';
-      const inspectionBadge = record.onInspection ? '<span class="pill bad inspectionBadge">На досмотре</span>' : '';
-      const controls = controlsFromHistory(record.history);
-      const controlsHtml = controls.length ? '<div class="controlStates">' + controls.map(control => {
+      const controls = controlsFromHistory(record.history, record.status);
+      const finalRelease = isCleared(record.status) || (isReleased(record.status) && !isConditionalRelease(record.status) && !/обеспеч/i.test(record.status));
+      const inspectionBadge = record.onInspection && !finalRelease ? '<span class="pill bad inspectionBadge">На досмотре</span>' : '';
+      const controlsHtml = !finalRelease && controls.length ? '<div class="controlStates">' + controls.map(control => {
         const state = control.completed ? 'closed' : control.label === 'Досмотр' ? 'inspection' : 'open';
         const title = control.label + (control.completed ? ' · завершён' : ' · не закрыт');
         return '<span class="controlState ' + state + '" title="' + esc(title) + '"><b>' + esc(control.label) + '</b><small>' + (control.completed ? 'Закрыт' : 'Не закрыт') + '</small></span>';

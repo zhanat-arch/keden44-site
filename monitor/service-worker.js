@@ -1,7 +1,7 @@
-const RELEASE = '2026.10.05.2';
+const RELEASE = '2026.10.05.3';
 const CACHE_PREFIX = 'keden44-monitor-';
 const CACHE = CACHE_PREFIX + RELEASE;
-const ASSETS = ['./', './index.html', './styles.css', './themes/responsive-board.css', './monitor-public.css?v=5', './app.js?v=27', './monitor-public.js?v=4', './manifest.webmanifest', './modules/keden/client.js', './modules/telegram/client.js', './modules/core/notifications.js'];
+const ASSETS = ['./', './index.html', './styles.css', './themes/responsive-board.css', './monitor-public.css?v=5', './app.js?v=28', './monitor-public.js?v=4', './manifest.webmanifest', './modules/keden/client.js', './modules/telegram/client.js', './modules/core/notifications.js'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('message', event => {

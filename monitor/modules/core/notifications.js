@@ -56,7 +56,7 @@ export function summarizeControlAssignments(items = []) {
   };
 }
 
-export function controlsFromHistory(history = []) {
+export function controlsFromHistory(history = [], status = '') {
   const controls = new Map();
   const events = history.map((line, index) => {
     const parts = String(line).split(': уведомление KEDEN:');
@@ -94,7 +94,12 @@ export function controlsFromHistory(history = []) {
     const existing = groups.get(control.label);
     groups.set(control.label, { ...control, completed: control.completed && (existing?.completed ?? true) });
   }
-  return [...groups.values()];
+  const cleared = /очищен/i.test(status);
+  const finalRelease = /выпущен|выпуск/i.test(status) && !/условн|обеспеч|отмен|отказ|не выпущ/i.test(status);
+  return [...groups.values()].map(control => ({
+    ...control,
+    completed: control.completed || cleared || (finalRelease && control.label !== 'Экспертиза')
+  }));
 }
 
 export function notificationForChange(previous, next, changes, settings) {
