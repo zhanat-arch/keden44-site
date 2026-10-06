@@ -1067,7 +1067,14 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return true;
     }
 
+    const checksInFlight = new Map();
     async function check(id) {
+      if (checksInFlight.has(id)) return checksInFlight.get(id);
+      const pending = checkRecord(id).finally(() => checksInFlight.delete(id));
+      checksInFlight.set(id, pending);
+      return pending;
+    }
+    async function checkRecord(id) {
       const record = records.find(r => r.id === id);
       if (!record) return;
       record.lastChecked = now();
@@ -1123,13 +1130,19 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (visualChanged) render();
     }
     async function checkAll() { for (const record of records.filter(r => !r.archived && r.kedenUrl && !isTerminalStatus(r.status))) await check(record.id); }
-    async function checkDue(silent = false) {
-      if (dueCheckRunning) return;
+    let resumeCheckPending = false;
+    async function checkDue(silent = false, forceActive = false) {
+      if (dueCheckRunning) {
+        if (forceActive) resumeCheckPending = true;
+        return;
+      }
       if (!settings.helpQrChecks) {
         if (!silent) els.line.textContent = 'Фоновая проверка QR отключена в настройках';
         return;
       }
-      const due = records.filter(isDue);
+      const due = records.filter(record => forceActive
+        ? !record.archived && record.kedenUrl && !isTerminalStatus(record.status)
+        : isDue(record));
       if (!due.length) {
         if (!silent) els.line.textContent = 'Сейчас нет ДТ, которым нужна проверка';
         return;
@@ -1140,6 +1153,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
         for (const record of due) await check(record.id);
       } finally {
         dueCheckRunning = false;
+        if (resumeCheckPending) {
+          resumeCheckPending = false;
+          void checkDue(true, true);
+        }
       }
     }
     function checkConditionalReminders() {
@@ -1624,6 +1641,19 @@ import { createTelegramClient } from './modules/telegram/client.js';
     render();
     if (transferMessage) els.line.textContent = transferMessage;
     importSharedPdfsFromUrl();
-    setTimeout(() => { checkDue(true); checkConditionalReminders(); }, 5000);
+    let lastResumeCheck = 0;
+    function refreshOnResume() {
+      if (document.visibilityState === 'hidden' || navigator.onLine === false) return;
+      if (Date.now() - lastResumeCheck < 10_000) return;
+      lastResumeCheck = Date.now();
+      void checkDue(true, true);
+      checkConditionalReminders();
+      if (googleConnected && settings.helpCoworkers) pullCoworkerNotifications().catch(() => {});
+    }
+    document.addEventListener('visibilitychange', refreshOnResume);
+    window.addEventListener('focus', refreshOnResume);
+    window.addEventListener('pageshow', refreshOnResume);
+    window.addEventListener('online', refreshOnResume);
+    refreshOnResume();
     setInterval(() => { checkDue(true); checkConditionalReminders(); }, 60000);
   })();
