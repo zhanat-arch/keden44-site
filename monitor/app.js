@@ -659,8 +659,12 @@ import { createTelegramClient } from './modules/telegram/client.js';
         : '';
       const unreadNotifications = (record.kedenUnreadNotificationIds || []).length;
       const unreadBadge = unreadNotifications ? '<b class="unreadCount" aria-label="Непрочитанных уведомлений: ' + unreadNotifications + '">' + unreadNotifications + '</b>' : '';
+      const lastNotificationTime = notificationTimestamp(record.lastKedenNotificationAt);
+      const lastNotificationDate = Number.isFinite(lastNotificationTime)
+        ? new Date(lastNotificationTime).toLocaleString('ru-RU', { timeZone: 'Asia/Qyzylorda', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '')
+        : '';
       const kedenEventHtml = record.lastKedenNotification
-        ? '<button class="kedenEvent' + (unreadNotifications ? ' isNew' : '') + '" data-action="notifications" title="' + esc(record.lastKedenNotification) + '"><span class="kedenEventText"><b>' + esc(kedenEventTitle(record.lastKedenNotification)) + '</b>' + (workflowText ? '<i>' + esc(workflowText) + '</i>' : '') + conditionalRequestHint + '</span><small>Смотреть все уведомления' + unreadBadge + '</small></button>'
+        ? '<button class="kedenEvent' + (unreadNotifications ? ' isNew' : '') + '" data-action="notifications"><span class="kedenEventText"><b>Последнее уведомление</b>' + (lastNotificationDate ? '<i>' + esc(lastNotificationDate) + '</i>' : '') + '</span><small>Смотреть все' + unreadBadge + '</small></button>'
         : '';
       const controls = controlsFromHistory(record.history, record.status);
       const finalRelease = isCleared(record.status) || (isReleased(record.status) && !isConditionalRelease(record.status) && !/обеспеч/i.test(record.status));
