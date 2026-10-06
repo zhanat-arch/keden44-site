@@ -16,3 +16,11 @@
 .controlState.inspection{border-color:#df7979;background:#ffeded;color:#a02121}
 .requestSummary{display:flex;flex-direction:column;gap:4px;width:100%;margin:8px 0;padding:8px 10px;text-align:left;border:1px solid #d6a528;border-left:4px solid #c88610;border-radius:4px;background:#fff7d8;color:#715000;white-space:normal;overflow-wrap:anywhere;font-size:12px}
 .requestSummary.answered{border-color:#6ab58b;background:#e3f5e9;color:#17683a}
+.notificationWithHelp{display:grid;grid-template-columns:minmax(0,1fr) 28px;gap:6px;align-items:start;margin:6px 0}
+.notificationHelp{font-size:12px;line-height:1.5}
+.notificationHelp summary{display:flex;align-items:center;justify-content:center;width:26px;height:26px;margin-top:8px;border:1px solid #86aad0;border-radius:50%;color:#1265a4;cursor:pointer;font-weight:700;list-style:none}
+.notificationHelp summary::-webkit-details-marker{display:none}
+.notificationHelp[open]{grid-column:1/-1;grid-row:2}
+.notificationHelp[open] summary{margin:0 0 6px auto}
+.notificationHelp div{padding:6px 0;color:#394858;overflow-wrap:anywhere}
+.notificationHelp a{display:block;margin-top:4px}

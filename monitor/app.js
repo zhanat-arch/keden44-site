@@ -684,7 +684,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const attachmentCheckSucceeded = /проверка вложений/i.test(record.status || '') && /успешно|имеются все вложения/i.test(record.status || '');
       const statusLabel = attachmentCheckSucceeded ? 'При подаче: все вложения приложены' : record.status || 'Без статуса';
       const statusBadge = '<span class="pill ' + pillClass + '">' + esc(statusLabel) + '</span>';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + requestHtml + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      const notificationHelpHtml = '<details class="notificationHelp"><summary aria-label="О запросах и уведомлениях" title="О запросах и уведомлениях">?</summary><div>Запросы и подробные уведомления поступают только через расширение KEDEN44. Для их получения расширение должно работать в браузере с открытой сессией KEDEN. <a href="https://keden44.com/extension/" target="_blank" rel="noopener noreferrer">Страница расширения</a></div></details>';
+      const notificationSection = '<div class="notificationWithHelp"><div>' + requestHtml + kedenEventHtml + '</div>' + notificationHelpHtml + '</div>';
+      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + notificationSection + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
         node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
           records = records.filter(item => item.id !== record.id);
