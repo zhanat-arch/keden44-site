@@ -14,3 +14,5 @@
 .controlState b{font-size:12px}.controlState small{font-size:11px}
 .controlState.closed{border-color:#6ab58b;background:#e3f5e9;color:#17683a}
 .controlState.inspection{border-color:#df7979;background:#ffeded;color:#a02121}
+.requestSummary{display:flex;flex-direction:column;gap:4px;width:100%;margin:8px 0;padding:8px 10px;text-align:left;border:1px solid #d6a528;border-left:4px solid #c88610;border-radius:4px;background:#fff7d8;color:#715000;white-space:normal;overflow-wrap:anywhere;font-size:12px}
+.requestSummary.answered{border-color:#6ab58b;background:#e3f5e9;color:#17683a}

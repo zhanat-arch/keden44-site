@@ -122,3 +122,21 @@ export function notificationForChange(previous, next, changes, settings) {
   }
   return null;
 }
+
+export function latestRequestFromHistory(history = []) {
+  const events = history.map((line, index) => {
+    const parts = String(line).split(': уведомление KEDEN:');
+    return { text: parts.slice(1).join(': уведомление KEDEN:'), date: parts[0], time: notificationTimestamp(parts[0]), index };
+  }).filter(event => event.text).sort((a, b) => Number.isFinite(a.time) && Number.isFinite(b.time) ? a.time - b.time || a.index - b.index : a.index - b.index);
+  let request = null;
+  for (const event of events) {
+    const response = /ответ[а-яё]*[^.\n]*(?:на|по)\s+(?:дополнительн[а-яё]*\s+)?запрос/i.test(event.text)
+      && /(?:отправлен|направлен|поступил|получен|предоставлен)[аоы]?/i.test(event.text);
+    if (response) {
+      if (request) request = { ...request, answeredAt: event.date, answeredTime: event.time };
+    } else if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(event.text)) {
+      request = { date: event.date, time: event.time, text: event.text, answeredAt: '', answeredTime: NaN };
+    }
+  }
+  return request;
+}

@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
+import { latestRequestFromHistory, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -639,7 +639,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const extendButton = isConditionalRelease(record.status) ? '<button data-action="extend">Продлить срок</button>' : '';
       const letterButton = record.conditionalExtensionLetterName ? '<button data-action="letter">Открыть письмо</button>' : '';
       const archiveLabel = record.archived ? 'Вернуть' : 'В архив';
-      const hasDocumentRequest = /дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(record.lastKedenNotification || '');
+      const lastRequest = latestRequestFromHistory(record.history);
+      const hasDocumentRequest = Boolean(lastRequest);
       const requestActions = hasDocumentRequest
         ? '<button data-action="request-progress">Собираем документы</button><button data-action="request-done">Отвечено</button>'
         : '';
@@ -655,10 +656,12 @@ import { createTelegramClient } from './modules/telegram/client.js';
           + '<button class="iconAction acceptAction" data-action="clear" data-tooltip="Принять новое изменение" aria-label="Принять новое изменение">✓</button>'
           + '<button class="iconAction noteAction" data-action="note" data-tooltip="Краткая заметка" aria-label="Краткая заметка">✎</button>'
           + '<details class="cardMenu"><summary data-tooltip="Другие действия" aria-label="Другие действия">⋯</summary><div class="cardMenuPopover">' + menuItems + '</div></details>';
-      const workflowText = record.requestWorkflow === 'progress' ? 'Собираем документы.' : record.requestWorkflow === 'done' ? 'Ответ отправлен.' : '';
-      const conditionalRequestHint = isConditionalRelease(record.status) && hasDocumentRequest
-        ? '<em>Возможно, это запрос сертификата. Приложите его, когда будет готов.</em>'
-        : '';
+      const workflowTime = notificationTimestamp(record.requestWorkflowAt);
+      const manualWorkflowCurrent = lastRequest && Number.isFinite(workflowTime) && workflowTime >= lastRequest.time;
+      const requestAnswered = Boolean(lastRequest?.answeredAt) || (manualWorkflowCurrent && record.requestWorkflow === 'done');
+      const answerDate = lastRequest?.answeredAt || (requestAnswered ? new Date(workflowTime).toLocaleString('ru-RU', { timeZone: 'Asia/Qyzylorda', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
+      const requestState = requestAnswered ? 'Ответ отправлен' + (answerDate ? ' · ' + answerDate : '') : manualWorkflowCurrent && record.requestWorkflow === 'progress' ? 'Собираем документы' : 'Ожидает ответа';
+      const requestHtml = lastRequest ? '<button class="requestSummary' + (requestAnswered ? ' answered' : '') + '" data-action="request-notifications"><b>Последний запрос · ' + esc(lastRequest.date) + '</b><span>' + esc(requestState) + '</span></button>' : '';
       const unreadNotifications = (record.kedenUnreadNotificationIds || []).length;
       const unreadBadge = unreadNotifications ? '<b class="unreadCount" aria-label="Непрочитанных уведомлений: ' + unreadNotifications + '">' + unreadNotifications + '</b>' : '';
       const lastNotificationTime = notificationTimestamp(record.lastKedenNotificationAt);
@@ -681,7 +684,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const attachmentCheckSucceeded = /проверка вложений/i.test(record.status || '') && /успешно|имеются все вложения/i.test(record.status || '');
       const statusLabel = attachmentCheckSucceeded ? 'При подаче: все вложения приложены' : record.status || 'Без статуса';
       const statusBadge = '<span class="pill ' + pillClass + '">' + esc(statusLabel) + '</span>';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + requestHtml + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
         node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
           records = records.filter(item => item.id !== record.id);
@@ -691,6 +694,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       }
       node.querySelector('[data-action="open"]').addEventListener('click', () => { if (record.kedenUrl) window.open(record.kedenUrl, '_blank'); else els.line.textContent = 'Нет ссылки KEDEN'; });
       node.querySelector('[data-action="notifications"]')?.addEventListener('click', () => openRecordNotifications(record));
+      node.querySelector('[data-action="request-notifications"]')?.addEventListener('click', () => openRecordNotifications(record));
       node.querySelector('[data-action="preview"]')?.addEventListener('click', () => openFirstPage(record));
       node.querySelector('[data-action="extend"]')?.addEventListener('click', () => openExtensionForm(record));
       node.querySelector('[data-action="letter"]')?.addEventListener('click', () => openSupportDocument(record));
@@ -1187,7 +1191,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (changed) saveRecords();
     }
     function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; if (isCleared(record.status)) record.archived = true; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
-    function setRequestWorkflow(id, value) { const record = records.find(r => r.id === id); if (!record) return; record.requestWorkflow = value; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (value === 'done' ? ': ответ на запрос отправлен' : ': начат сбор документов по запросу')]; saveRecords(); render(); }
+    function setRequestWorkflow(id, value) { const record = records.find(r => r.id === id); if (!record) return; record.requestWorkflow = value; record.requestWorkflowAt = new Date().toISOString(); record.updatedAt = record.requestWorkflowAt; record.history = [...(record.history || []), now() + (value === 'done' ? ': ответ на запрос отправлен' : ': начат сбор документов по запросу')]; saveRecords(); render(); }
     function toggleArchive(id) { const record = records.find(r => r.id === id); if (!record) return; record.archived = !record.archived; record.updatedAt = new Date().toISOString(); saveRecords(); render(); }
     async function deleteRecord(id) { const record = records.find(r => r.id === id); if (!record) return; if (!window.confirm('Удалить запись "' + (record.name || record.dtNumber || 'без имени') + '"?')) return; records = records.filter(r => r.id !== id); await Promise.all([deleteFirstPagePreview(id).catch(() => {}), deleteSupportDocument(id).catch(() => {})]); saveRecords(); render(); }
     function applySettings() {
