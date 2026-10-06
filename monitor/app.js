@@ -368,7 +368,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
             if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
           }
           if (isNew) {
-            record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
+            if (!(record.kedenReadNotificationIds || []).includes(item.id)) record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
             record.changed = true;
             record.updatedAt = new Date().toISOString();
             const timestamp = notificationTimestamp(item.deliveredAt);
@@ -584,7 +584,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
         }).join('')
         : '<p class="emptyNotifications">Сохранённых уведомлений пока нет.</p>';
       if ((record.kedenUnreadNotificationIds || []).length) {
+        record.kedenReadNotificationIds = [...new Set([...(record.kedenReadNotificationIds || []), ...record.kedenUnreadNotificationIds])].slice(-2000);
         record.kedenUnreadNotificationIds = [];
+        record.updatedAt = new Date().toISOString();
         saveRecords();
         render();
       }
@@ -676,7 +678,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
       }).join('') + '</div>' : '';
       const noteHtml = record.specialistNote ? '<div class="specialistNote privateData"><b>Заметка:</b> ' + esc(record.specialistNote) + '</div>' : '';
       const noteEditorHtml = '<div class="cardNoteEditor" data-note-editor hidden><input type="text" maxlength="160" value="' + esc(record.specialistNote || '') + '" placeholder="Краткая заметка"><button type="button" data-note-save>OK</button></div>';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + '<span class="pill ' + pillClass + '">' + esc(record.status || 'Без статуса') + '</span></div></div>' + controlsHtml + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      const attachmentCheckSucceeded = /проверка вложений/i.test(record.status || '') && /успешно|имеются все вложения/i.test(record.status || '');
+      const statusLabel = attachmentCheckSucceeded ? 'При подаче: все вложения приложены' : record.status || 'Без статуса';
+      const statusBadge = '<span class="pill ' + pillClass + '">' + esc(statusLabel) + '</span>';
+      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + kedenEventHtml + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
         node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
           records = records.filter(item => item.id !== record.id);
@@ -1279,7 +1284,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
         const key = keyOf(record);
         if (!key) continue;
         const current = merged.get(key);
-        if (!current || Date.parse(record.updatedAt || 0) >= Date.parse(current.updatedAt || 0)) merged.set(key, record);
+        const read = [...new Set([...(current?.kedenReadNotificationIds || []), ...(record.kedenReadNotificationIds || [])])].slice(-2000);
+        const winner = !current || Date.parse(record.updatedAt || 0) >= Date.parse(current.updatedAt || 0) ? record : current;
+        merged.set(key, { ...winner, kedenReadNotificationIds: read, kedenUnreadNotificationIds: (winner.kedenUnreadNotificationIds || []).filter(id => !read.includes(id)) });
       }
       records = normalizeStoredRecords([...merged.values()]);
     }
@@ -1311,6 +1318,19 @@ import { createTelegramClient } from './modules/telegram/client.js';
     async function pushCloud() {
       if (!googleConnected || !googleCloudLoaded) return;
       await telegram.cloudPush(persistentRecords(), settings);
+    }
+    let cloudReadRefreshRunning = false;
+    async function refreshCloudReads() {
+      if (!googleConnected || !googleCloudLoaded || cloudReadRefreshRunning) return;
+      cloudReadRefreshRunning = true;
+      try {
+        const result = await telegram.cloudPull();
+        const previous = JSON.stringify(persistentRecords());
+        mergeCloudRecords(result.cloud?.records || []);
+        if (JSON.stringify(persistentRecords()) === previous) return;
+        try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {}
+        render();
+      } finally { cloudReadRefreshRunning = false; }
     }
     function scheduleCloudSync() {
       if (!googleConnected || !googleCloudLoaded) return;
@@ -1639,6 +1659,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const wasConnected = telegramConnected;
       const linked = await refreshTelegramStatus();
       if (linked && !wasConnected && googleConnected) syncTelegramWatches().catch(() => {});
+      refreshCloudReads().catch(() => {});
       if (googleConnected && settings.helpCoworkers) pullCoworkerNotifications().catch(() => {});
     }, 30000);
     saveRecords();
@@ -1651,6 +1672,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (Date.now() - lastResumeCheck < 10_000) return;
       lastResumeCheck = Date.now();
       void checkDue(true, true);
+      refreshCloudReads().catch(() => {});
       checkConditionalReminders();
       if (googleConnected && settings.helpCoworkers) pullCoworkerNotifications().catch(() => {});
     }
