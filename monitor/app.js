@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { latestRequestFromHistory, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
+import { visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -639,7 +639,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const extendButton = isConditionalRelease(record.status) ? '<button data-action="extend">Продлить срок</button>' : '';
       const letterButton = record.conditionalExtensionLetterName ? '<button data-action="letter">Открыть письмо</button>' : '';
       const archiveLabel = record.archived ? 'Вернуть' : 'В архив';
-      const lastRequest = latestRequestFromHistory(record.history);
+      const lastRequest = visibleRequestForRecord(record);
       const hasDocumentRequest = Boolean(lastRequest);
       const requestActions = hasDocumentRequest
         ? '<button data-action="request-progress">Собираем документы</button><button data-action="request-done">Отвечено</button>'
@@ -660,8 +660,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const manualWorkflowCurrent = lastRequest && Number.isFinite(workflowTime) && workflowTime >= lastRequest.time;
       const requestAnswered = Boolean(lastRequest?.answeredAt) || (manualWorkflowCurrent && record.requestWorkflow === 'done');
       const answerDate = lastRequest?.answeredAt || (requestAnswered ? new Date(workflowTime).toLocaleString('ru-RU', { timeZone: 'Asia/Qyzylorda', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
-      const requestState = requestAnswered ? 'Ответ отправлен' + (answerDate ? ' · ' + answerDate : '') : manualWorkflowCurrent && record.requestWorkflow === 'progress' ? 'Собираем документы' : 'Ожидает ответа';
-      const requestHtml = lastRequest ? '<button class="requestSummary' + (requestAnswered ? ' answered' : '') + '" data-action="request-notifications"><b>Последний запрос · ' + esc(lastRequest.date) + '</b><span>' + esc(requestState) + '</span></button>' : '';
+      const requestState = requestAnswered ? 'Ответ отправлен' + (answerDate ? ' · ' + answerDate : '') : manualWorkflowCurrent && record.requestWorkflow === 'progress' ? 'Собираем документы' : '';
+      const requestHtml = lastRequest ? '<button class="requestSummary' + (requestAnswered ? ' answered' : '') + '" data-action="request-notifications"><b>Поступил запрос · ' + esc(lastRequest.date) + '</b>' + (requestState ? '<span>' + esc(requestState) + '</span>' : '') + '</button>' : '';
       const unreadNotifications = (record.kedenUnreadNotificationIds || []).length;
       const unreadBadge = unreadNotifications ? '<b class="unreadCount" aria-label="Непрочитанных уведомлений: ' + unreadNotifications + '">' + unreadNotifications + '</b>' : '';
       const lastNotificationTime = notificationTimestamp(record.lastKedenNotificationAt);

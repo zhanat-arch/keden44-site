@@ -140,3 +140,25 @@ export function latestRequestFromHistory(history = []) {
   }
   return request;
 }
+
+export function visibleRequestForRecord(record = {}) {
+  const request = latestRequestFromHistory(record.history);
+  if (!request) return null;
+  const status = String(record.status || '');
+  if (!/выпущ|очищ|выпуск/i.test(status)) return request;
+  let releaseTime = notificationTimestamp(record.releaseDate);
+  let preciseRelease = /\d{1,2}:\d{2}/.test(String(record.releaseDate || ''));
+  for (const line of record.history || []) {
+    const parts = String(line).split(': уведомление KEDEN:');
+    if (!/(?:^|\s)ДТ\s+\d{5}\/\d{6}\/\d{7}\s+(?:условно\s+)?(?:выпущен[ао]?|очищен[ао]?)/i.test(parts.slice(1).join(' '))) continue;
+    const time = notificationTimestamp(parts[0]);
+    if (Number.isFinite(time) && (!Number.isFinite(releaseTime) || time >= releaseTime)) {
+      releaseTime = time;
+      preciseRelease = /\d{1,2}:\d{2}/.test(parts[0]);
+    }
+  }
+  if (!Number.isFinite(releaseTime) || !Number.isFinite(request.time)) return null;
+  // Date-only releases cannot establish order within the same day.
+  const boundary = preciseRelease ? releaseTime : releaseTime + 24 * 60 * 60_000 - 1;
+  return request.time > boundary ? request : null;
+}
