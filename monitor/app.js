@@ -244,8 +244,13 @@ import { createTelegramClient } from './modules/telegram/client.js';
           store.setItem(KEY, JSON.stringify(persistentRecords()));
           knownRecordNumbers = new Set(persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
         }
-      } catch (error) { console.error('Failed to save monitor records', error); }
+      } catch (error) {
+        console.error('Failed to save monitor records', error);
+        showSyncState('error', 'Не удалось сохранить ДТ в браузере: ' + error.name + '. Не закрывайте монитор; экспортируйте резервную копию.');
+        return false;
+      }
       scheduleTelegramSync(); scheduleCloudSync();
+      return true;
     }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
 
