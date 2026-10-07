@@ -1,0 +1,41 @@
+.hero {
+  min-height: 0;
+  padding-top: 44px;
+  padding-bottom: 36px;
+}
+.hero h1 {
+  font-size: 64px;
+  line-height: 1.05;
+}
+.hero .lead {
+  margin: 18px 0;
+  font-size: 22px;
+}
+.hero .independent {
+  margin: 14px 0;
+}
+.hero-more {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 14px;
+}
+#product {
+  padding-top: 32px;
+  scroll-margin-top: 88px;
+}
+@media (max-width: 760px) {
+  .hero {
+    min-height: 0;
+    padding-top: 28px;
+    padding-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: 44px;
+  }
+  .hero .lead {
+    font-size: 18px;
+  }
+  #product {
+    padding-top: 24px;
+  }
+}
