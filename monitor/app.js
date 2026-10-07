@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { requestNeedsAttention, latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
+import { latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -414,7 +414,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
             record.status = 'Выпущена';
             if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
           }
-          if (isNew) {
+          if (isNew && !(record.kedenReadNotificationIds || []).includes(item.id)) {
             if (!(record.kedenReadNotificationIds || []).includes(item.id)) record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
             record.changed = true;
             record.updatedAt = new Date().toISOString();
@@ -521,7 +521,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return deadline ? { deadline, remaining: daysUntil(deadline) } : null;
     }
     function conditionalNeedsAttention(record) { const info = conditionalInfo(record); return Boolean(info && info.remaining <= 7); }
-    function recordNeedsAttention(record) { return !record.archived && (requestNeedsAttention(record) || (Boolean(record.onInspection) && !isReleased(record.status)) || needsAttention(record) || conditionalNeedsAttention(record)); }
+    function recordNeedsAttention(record) { return !record.archived && ((Boolean(record.onInspection) && !isReleased(record.status)) || needsAttention(record) || conditionalNeedsAttention(record)); }
     function matches(record) { if (!recordMatchesQuery(record, query)) return false; if (declarantBinFilter && !String(record.declarantBin || '').includes(declarantBinFilter)) return false; if (releasePeriod !== 'all') { const date = parseReleaseDate(record.releaseDate); if (!date || Date.now() - date.getTime() > Number(releasePeriod) * 86400000) return false; } if (scope === 'active') return !record.archived; if (scope === 'changed') return recordNeedsAttention(record); if (scope === 'conditional') return !record.archived && statusKind(record.status) === 'conditional'; if (scope === 'work') return !record.archived && !recordNeedsAttention(record) && !['released', 'conditional'].includes(statusKind(record.status)); if (scope === 'released') return !record.archived && statusKind(record.status) === 'released'; return true; }
     function grouped() { const out = { changed: [], work: [], conditional: [], released: [], archive: [] }; records.filter(matches).forEach(r => { if (r.archived) out.archive.push(r); else if (recordNeedsAttention(r)) out.changed.push(r); else if (statusKind(r.status) === 'conditional') out.conditional.push(r); else if (statusKind(r.status) === 'released' && isRecentRelease(r.releaseDate, settings.recentDays)) out.released.push(r); else if (statusKind(r.status) === 'released') out.archive.push(r); else out.work.push(r); }); return out; }
 
@@ -1240,7 +1240,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       }
       if (changed) saveRecords();
     }
-    function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; if (isCleared(record.status)) record.archived = true; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
+    function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; record.kedenReadNotificationIds = [...new Set([...(record.kedenReadNotificationIds || []), ...(record.kedenUnreadNotificationIds || [])])].slice(-2000); record.kedenUnreadNotificationIds = []; if (isCleared(record.status)) record.archived = true; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
     function setRequestWorkflow(id, value) { const record = records.find(r => r.id === id); if (!record) return; record.requestWorkflow = value; record.requestWorkflowAt = new Date().toISOString(); record.updatedAt = record.requestWorkflowAt; record.history = [...(record.history || []), now() + (value === 'done' ? ': ответ на запрос отправлен' : ': начат сбор документов по запросу')]; saveRecords(); render(); }
     function toggleArchive(id) { const record = records.find(r => r.id === id); if (!record) return; record.archived = !record.archived; record.updatedAt = new Date().toISOString(); saveRecords(); render(); }
     async function deleteRecord(id) { const record = records.find(r => r.id === id); if (!record) return; if (!window.confirm('Удалить запись "' + (record.name || record.dtNumber || 'без имени') + '"?')) return; records = records.filter(r => r.id !== id); await Promise.all([deleteFirstPagePreview(id).catch(() => {}), deleteSupportDocument(id).catch(() => {})]); saveRecords(); render(); }
