@@ -19,6 +19,17 @@
   margin-top: 4px;
   font-size: 14px;
 }
+.start-help {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.start-help a {
+  display: inline-block;
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
 #product {
   padding-top: 32px;
   scroll-margin-top: 88px;
