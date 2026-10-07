@@ -24,3 +24,5 @@
 .notificationHelp[open] summary{margin:0 0 6px auto}
 .notificationHelp div{padding:6px 0;color:#394858;overflow-wrap:anywhere}
 .notificationHelp a{display:block;margin-top:4px}
+.extensionInstall{margin:0 28px 12px}.extensionInstall a{display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;border-radius:6px;background:#2563eb;color:#fff;font-weight:600;text-decoration:none;box-sizing:border-box;max-width:100%;overflow-wrap:anywhere}.extensionInstall a:hover{background:#1d4ed8}.extensionInstall a:focus-visible{outline:3px solid #16a34a;outline-offset:3px}@media(max-width:720px){.extensionInstall{margin-left:14px;margin-right:14px}}
+.monitorHelpLinks{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px}.monitorHelpLinks a{font-size:13px;color:#2563eb}.moreMenu>a{display:block;padding:10px 12px;color:#2563eb;text-decoration:none}.moreMenu>a:hover{background:#eff6ff}

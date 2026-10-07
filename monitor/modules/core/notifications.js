@@ -162,3 +162,18 @@ export function visibleRequestForRecord(record = {}) {
   const boundary = preciseRelease ? releaseTime : releaseTime + 24 * 60 * 60_000 - 1;
   return request.time > boundary ? request : null;
 }
+
+export function requestNeedsAttention(record = {}) {
+  if (record.archived) return false;
+  const request = visibleRequestForRecord(record);
+  if (!request || request.answeredAt) return false;
+  const workflowTime = notificationTimestamp(record.requestWorkflowAt);
+  return !(record.requestWorkflow === 'done' && Number.isFinite(workflowTime) && workflowTime >= request.time);
+}
+
+export function latestEventTime(record = {}) {
+  const times = [notificationTimestamp(record.lastKedenNotificationAt), notificationTimestamp(record.releaseDate)];
+  for (const line of record.history || []) times.push(notificationTimestamp(String(line).split(': уведомление KEDEN:')[0]));
+  const valid = times.filter(Number.isFinite);
+  return valid.length ? Math.max(...valid) : notificationTimestamp(record.createdAt) || 0;
+}

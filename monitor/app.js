@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
-import { visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
+import { requestNeedsAttention, latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -34,6 +34,49 @@ import { createTelegramClient } from './modules/telegram/client.js';
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
     const telegram = createTelegramClient({ storage: store });
+    const advancedDialog = document.createElement('dialog');
+    advancedDialog.id = 'advancedSettingsDialog';
+    advancedDialog.innerHTML = '<div class="dh"><h2>Дополнительные настройки</h2><button type="button" aria-label="Закрыть">x</button></div><div class="advancedSettingsBody"></div>';
+    document.body.append(advancedDialog);
+    const advancedBody = advancedDialog.querySelector('.advancedSettingsBody');
+    const helpSettings = document.querySelector('.backgroundHelpSettings');
+    const helpSection = helpSettings?.querySelector('section');
+    if (helpSection) advancedBody.append(helpSection);
+    helpSettings?.remove();
+    const intervalSettings = document.querySelector('#settingsPanel');
+    if (intervalSettings) advancedBody.append(intervalSettings);
+    const filterHeading = document.querySelector('#filterControls > summary');
+    if (filterHeading) filterHeading.textContent = 'Фильтры';
+    const advancedButton = document.createElement('button');
+    advancedButton.type = 'button';
+    advancedButton.textContent = 'Дополнительные настройки';
+    document.querySelector('.moreMenu')?.append(advancedButton);
+    const moreSummary = document.querySelector('.moreActions > summary');
+    if (moreSummary) {
+      moreSummary.textContent = '⋯';
+      moreSummary.setAttribute('aria-label', 'Другие действия');
+      moreSummary.title = 'Другие действия';
+    }
+    advancedButton.addEventListener('click', () => advancedDialog.showModal());
+    advancedDialog.querySelector('button').addEventListener('click', () => advancedDialog.close());
+    let backdropStart = null;
+    document.addEventListener('pointerdown', event => {
+      backdropStart = event.target instanceof HTMLDialogElement ? event.target : null;
+    });
+    document.addEventListener('click', event => {
+      for (const menu of document.querySelectorAll('.moreActions[open], .cardMenu[open], .notificationHelp[open]')) {
+        if (!menu.contains(event.target) || event.target.closest('button')) menu.open = false;
+      }
+      if (event.target instanceof HTMLDialogElement && backdropStart === event.target) {
+        const bounds = event.target.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) event.target.close();
+      }
+      backdropStart = null;
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      for (const menu of document.querySelectorAll('.moreActions[open], .cardMenu[open], .notificationHelp[open]')) menu.open = false;
+    });
     const now = () => new Date().toLocaleString('ru-RU');
     const seed = [];
     let records = normalizeStoredRecords(loadRecords());
@@ -158,12 +201,16 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return output;
     }
     function loadSettings() {
-      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, telegramShowDeclarant: false, telegramShowTransport: false, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, helpCoworkers: true, helpQrChecks: true, testPresetVersion: TEST_PRESET_VERSION };
+      const defaults = { workMinutes: 5, releasedHours: 1, recentDays: 3, conditionalDays: 60, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, telegramShowDeclarant: true, telegramShowTransport: true, showDeclarant: true, showTransport: true, showGoods: true, showSender: false, showReceiver: false, privacyMode: false, helpCoworkers: true, helpQrChecks: true, testPresetVersion: TEST_PRESET_VERSION };
       try {
         const saved = store && store.getItem(SETTINGS_KEY);
         if (!saved) return defaults;
         const parsed = JSON.parse(saved);
         const merged = { ...defaults, ...parsed };
+        if (!parsed.telegramFieldsPresetVersion) {
+          Object.assign(merged, { telegramShowDeclarant: true, telegramShowTransport: true, telegramFieldsPresetVersion: 1 });
+          store?.setItem(SETTINGS_KEY, JSON.stringify(merged));
+        }
         if (Number(parsed.testPresetVersion || 0) >= TEST_PRESET_VERSION) return merged;
         const migrated = { ...merged, workMinutes: 5, releasedHours: 1, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, testPresetVersion: TEST_PRESET_VERSION };
         store?.setItem(SETTINGS_KEY, JSON.stringify(migrated));
@@ -474,7 +521,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       return deadline ? { deadline, remaining: daysUntil(deadline) } : null;
     }
     function conditionalNeedsAttention(record) { const info = conditionalInfo(record); return Boolean(info && info.remaining <= 7); }
-    function recordNeedsAttention(record) { return Boolean(record.onInspection) || needsAttention(record) || conditionalNeedsAttention(record); }
+    function recordNeedsAttention(record) { return !record.archived && (requestNeedsAttention(record) || (Boolean(record.onInspection) && !isReleased(record.status)) || needsAttention(record) || conditionalNeedsAttention(record)); }
     function matches(record) { if (!recordMatchesQuery(record, query)) return false; if (declarantBinFilter && !String(record.declarantBin || '').includes(declarantBinFilter)) return false; if (releasePeriod !== 'all') { const date = parseReleaseDate(record.releaseDate); if (!date || Date.now() - date.getTime() > Number(releasePeriod) * 86400000) return false; } if (scope === 'active') return !record.archived; if (scope === 'changed') return recordNeedsAttention(record); if (scope === 'conditional') return !record.archived && statusKind(record.status) === 'conditional'; if (scope === 'work') return !record.archived && !recordNeedsAttention(record) && !['released', 'conditional'].includes(statusKind(record.status)); if (scope === 'released') return !record.archived && statusKind(record.status) === 'released'; return true; }
     function grouped() { const out = { changed: [], work: [], conditional: [], released: [], archive: [] }; records.filter(matches).forEach(r => { if (r.archived) out.archive.push(r); else if (recordNeedsAttention(r)) out.changed.push(r); else if (statusKind(r.status) === 'conditional') out.conditional.push(r); else if (statusKind(r.status) === 'released' && isRecentRelease(r.releaseDate, settings.recentDays)) out.released.push(r); else if (statusKind(r.status) === 'released') out.archive.push(r); else out.work.push(r); }); return out; }
 
@@ -507,8 +554,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
         const g = grouped();
         const sortedArchive = sortWithShipmentGroups(g.archive, record => submissionDateFromDtNumber(record.dtNumber)?.getTime() || new Date(record.updatedAt || 0).getTime());
         const visibleArchive = sortedArchive.slice(0, archiveVisibleCount);
-        els.summary.innerHTML = [['Всего', records.length], ['Активные', g.work.length + g.conditional.length], ['Требуют внимания', records.filter(recordNeedsAttention).length], ['Условный / обеспечение', records.filter(r => !r.archived && statusKind(r.status) === 'conditional').length], ['Выпущены', records.filter(r => isReleased(r.status)).length]].map(([label, value]) => '<div class="sum"><b>' + value + '</b><span>' + label + '</span></div>').join('');
-        draw(els.changed, g.changed);
+        els.summary.innerHTML = [['Всего', records.length], ['Активные', g.work.length + g.conditional.length], ['Требуют внимания', records.filter(recordNeedsAttention).length], ['Условный / обеспечение', records.filter(r => !r.archived && statusKind(r.status) === 'conditional').length], ['Выпущены', records.filter(r => isReleased(r.status)).length]].map(([label, value], index) => '<div class="sum">' + (index ? '<span aria-hidden="true">|</span>' : '') + '<span>' + label + ':</span><b>' + value + '</b></div>').join('');
+        draw(els.changed, [...g.changed].sort((a, b) => latestEventTime(b) - latestEventTime(a)), false, true);
         draw(els.work, g.work);
         draw(els.conditional, g.conditional, true);
         draw(els.released, g.released);
@@ -1302,6 +1349,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
       mergeCloudRecords(Array.isArray(cloud.records) ? cloud.records : []);
       if (cloud.settings && typeof cloud.settings === 'object' && Object.keys(cloud.settings).length) {
         settings = { ...settings, ...cloud.settings };
+        if (!cloud.settings.telegramFieldsPresetVersion) {
+          Object.assign(settings, { telegramShowDeclarant: true, telegramShowTransport: true, telegramFieldsPresetVersion: 1 });
+        }
         if (Number(cloud.settings.testPresetVersion || 0) < TEST_PRESET_VERSION) {
           settings = { ...settings, workMinutes: 5, releasedHours: 1, notifyReleased: true, notifyStatusChanges: true, notifyDataChanges: true, notifyProblems: true, notifyConditional: true, testPresetVersion: TEST_PRESET_VERSION };
         }
