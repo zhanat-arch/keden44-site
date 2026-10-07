@@ -1,4 +1,4 @@
-const RELEASE = '2026.10.07.3';
+const RELEASE = '2026.10.07.4';
 const CACHE_PREFIX = 'keden44-monitor-';
 const CACHE = CACHE_PREFIX + RELEASE;
 const ASSETS = ['./', './index.html', './styles.css', './themes/responsive-board.css', './monitor-public.css?v=8', './app.js?v=34', './monitor-public.js?v=4', './manifest.webmanifest', './modules/keden/client.js', './modules/telegram/client.js', './modules/core/notifications.js'];

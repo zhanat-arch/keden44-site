@@ -80,6 +80,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     const now = () => new Date().toLocaleString('ru-RU');
     const seed = [];
     let records = normalizeStoredRecords(loadRecords());
+    let knownRecordNumbers = new Set(records.map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
     let settings = loadSettings();
     let query = '';
     let declarantBinFilter = '';
@@ -220,7 +221,32 @@ import { createTelegramClient } from './modules/telegram/client.js';
       }
     }
     function persistentRecords() { return records.filter(record => !record.transientDuplicate); }
-    function saveRecords() { try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {} scheduleTelegramSync(); scheduleCloudSync(); }
+    window.addEventListener('storage', event => {
+      if (event.key !== KEY || !event.newValue) return;
+      try {
+        const incoming = JSON.parse(event.newValue);
+        if (!Array.isArray(incoming)) return;
+        records = normalizeStoredRecords(incoming);
+        render();
+      } catch (error) {
+        console.error('Failed to synchronize monitor tabs', error);
+      }
+    });
+    function saveRecords() {
+      try {
+        if (store) {
+          const currentNumbers = new Set(persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
+          const external = loadRecords().filter(record => {
+            const number = declarationNumberParts(record.dtNumber).baseNumber || record.id;
+            return currentNumbers.has(number) || !knownRecordNumbers.has(number);
+          });
+          mergeCloudRecords(external);
+          store.setItem(KEY, JSON.stringify(persistentRecords()));
+          knownRecordNumbers = new Set(persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
+        }
+      } catch (error) { console.error('Failed to save monitor records', error); }
+      scheduleTelegramSync(); scheduleCloudSync();
+    }
     function saveSettings() { try { if (store) store.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} scheduleCloudSync(); }
 
     function knownClientBins() {
@@ -1383,6 +1409,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       try {
         const result = await telegram.cloudPull();
         const previous = JSON.stringify(persistentRecords());
+        mergeCloudRecords(loadRecords());
         mergeCloudRecords(result.cloud?.records || []);
         if (JSON.stringify(persistentRecords()) === previous) return;
         try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {}
