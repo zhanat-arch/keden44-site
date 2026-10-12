@@ -1,0 +1,10 @@
+td.person,
+td.state {
+  display: table-cell;
+  padding: 12px 16px;
+  border-radius: 0;
+}
+td.person strong,
+td.person small {
+  display: block;
+}

@@ -79,6 +79,9 @@ function renderUsers(users = []) {
     const telegram = cell(row, user.telegram ? 'Подключён' : 'Нет');
     telegram.className = user.telegram ? 'state ok' : 'state';
     cell(row, user.watchCount);
+    const delivery = cell(row, user.notificationDeliveryAt ? 'Проверено передачей уведомлений: ' + dateTime(user.notificationDeliveryAt) : 'Передача ещё не подтверждена');
+    delivery.className = user.notificationDeliveryAt ? 'state ok' : 'state';
+    delivery.title = 'Время успешного приёма уведомлений сервером. Не подтверждает текущую сессию KEDEN; переданные уведомления могут быть ранее полученными.';
     const subscription = cell(row, stateLabel(user.subscription));
     subscription.className = stateClass(user.subscription);
     body.append(row);
@@ -86,7 +89,7 @@ function renderUsers(users = []) {
   if (!users.length) {
     const row = document.createElement('tr');
     const empty = cell(row, 'Подтверждённых пользователей пока нет.', 'emptyRow');
-    empty.colSpan = 6;
+    empty.colSpan = 7;
     body.append(row);
   }
 }
@@ -155,10 +158,10 @@ function renderExtensions(installations = []) {
     const row = document.createElement('tr');
     cell(row, String(installation.installationId || '').slice(0, 8) || '—');
     cell(row, dateTime(installation.lastSeenAt));
-    const online = cell(row, installation.online ? 'На связи' : 'Нет сигнала');
+    const online = cell(row, installation.online ? 'На связи' : 'Нет свежего минутного сигнала');
     online.className = installation.online ? 'state ok' : 'state wait';
-    const keden = cell(row, extensionState(installation.lastState?.reason));
-    keden.className = installation.lastState?.ok ? 'state ok' : 'state wait';
+    const keden = cell(row, installation.online ? extensionState(installation.lastState?.reason) : 'Текущее состояние неизвестно');
+    keden.className = installation.online && installation.lastState?.ok ? 'state ok' : 'state wait';
     cell(row, installation.lastState?.version || '—');
     cell(row, installation.sampleCount || 0);
     body.append(row);
