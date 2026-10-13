@@ -1480,7 +1480,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       }
     }
     function watchFromRecord(record) {
-      if (record.archived || !record.kedenUrl || isTerminalStatus(record.status)) return null;
+      if (record.archived || !record.kedenUrl) return null;
       try {
         const parsed = new URL(record.kedenUrl);
         const sourcePath = parsed.pathname === '/qrpage' ? parsed.searchParams.get('url') || '' : parsed.pathname;
@@ -1489,6 +1489,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         return {
           id: record.id,
           qrId: match[1],
+          completedHint: isTerminalStatus(record.status),
           dtNumber: record.dtNumber,
           name: record.name,
           declarant: record.declarant,
