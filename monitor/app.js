@@ -128,7 +128,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
         els.accessNoticeText.textContent = 'Серверная проверка и синхронизация работают.';
       } else if (accessState.state === 'trial') {
         els.accessNoticeTitle.textContent = `Бесплатный тест до ${accessDate(accessState.trialUntil || '2026-10-31T23:59:59+05:00')}`;
-        els.accessNoticeText.textContent = 'Новому аккаунту — 7 дней теста. После окончания доступа — ещё 7 календарных дней на оплату.';
+        els.accessNoticeText.textContent = 'Новому аккаунту — 7 дней бесплатного теста. Сроки теста и оплаты не суммируются.';
       } else if (accessState.state === 'grace') {
         els.accessNoticeTitle.textContent = 'Ожидается оплата';
         els.accessNoticeText.textContent = `На оплату предоставляется 7 календарных дней. Монитор продолжит работу до ${accessDate(accessState.graceUntil)}.`;
