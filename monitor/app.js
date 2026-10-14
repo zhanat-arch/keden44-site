@@ -1,6 +1,7 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
 import { latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
+import { normalizeExtensionGoods } from './modules/core/goods.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
 import { requestKedenCheck } from './modules/keden/client.js';
@@ -161,7 +162,8 @@ import { createTelegramClient } from './modules/telegram/client.js';
       const mainByNumber = new Map();
       const corrections = [];
 
-      for (const item of items) {
+      for (const rawItem of items) {
+        const item = normalizeExtensionGoods(rawItem);
         if (typeof item.onInspection !== 'boolean') {
           item.onInspection = (item.history || [])
             .filter(line => /уведомление KEDEN:/i.test(line))
@@ -229,7 +231,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       try {
         const incoming = JSON.parse(event.newValue);
         if (!Array.isArray(incoming)) return;
-        records = normalizeStoredRecords(incoming);
+        records = normalizeStoredRecords(incoming.map(item => normalizeExtensionGoods(item, records.find(previous => previous.id === item.id))));
         render();
       } catch (error) {
         console.error('Failed to synchronize monitor tabs', error);
