@@ -10,6 +10,7 @@ import { splitDeclarationNumber, splitOrganizationName } from './modules/core/pr
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
 import { createTelegramClient } from './modules/telegram/client.js';
+import { installTelegramLogin } from './modules/telegram/login.js';
 
 (() => {
     const KEY = 'dt-board-records-v6';
@@ -35,6 +36,11 @@ import { createTelegramClient } from './modules/telegram/client.js';
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
     const telegram = createTelegramClient({ storage: store });
+    const telegramLogin = installTelegramLogin(telegram, async () => {
+      await refreshTelegramStatus();
+      await syncTelegramWatches();
+      render();
+    });
     const advancedDialog = document.createElement('dialog');
     advancedDialog.id = 'advancedSettingsDialog';
     advancedDialog.innerHTML = '<div class="dh"><h2>Дополнительные настройки</h2><button type="button" aria-label="Закрыть">x</button></div><div class="advancedSettingsBody"></div>';
@@ -330,7 +336,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
     }
 
     async function loadClientRecipients() {
-      if (!googleConnected) throw new Error('Сначала войдите через Google.');
+      if (!googleConnected) throw new Error('Сначала войдите через Google или Telegram-бота.');
       const result = await telegram.clientRecipients();
       clientRecipients = result.recipients || [];
       renderClientRecipientList();
@@ -1346,11 +1352,12 @@ import { createTelegramClient } from './modules/telegram/client.js';
       if (permission === 'granted') sendNotice('KEDEN44 Control', 'Уведомления включены');
     }
     function renderGoogleProfile(profile) {
+      telegramLogin.setAuthenticated(true);
       if (!els.googleSignIn) return;
       els.googleSignIn.replaceChildren();
       const status = document.createElement('span');
       status.className = 'googleAccount';
-      status.textContent = 'Синхронизация: ' + (profile?.email || 'Google подключён');
+      status.textContent = 'Синхронизация: ' + (profile?.email || (profile?.telegramId ? 'Telegram ID ' + profile.telegramId : 'Google подключён'));
       status.title = 'Записи этого монитора синхронизируются между вашими устройствами';
       els.googleSignIn.append(status);
       updateBackgroundSetup();
@@ -1361,10 +1368,10 @@ import { createTelegramClient } from './modules/telegram/client.js';
         element.dataset.state = state;
         element.textContent = text;
       };
-      setState(els.googleSetupState, googleConnected ? 'ready' : 'pending', googleConnected ? 'Google: подключён' : 'Google: не подключён');
+      setState(els.googleSetupState, googleConnected ? 'ready' : 'pending', googleConnected ? 'Аккаунт: подключён' : 'Аккаунт: не подключён');
       setState(els.telegramSetupState, telegramConnected ? 'ready' : 'pending', telegramConnected ? 'Telegram: подключён' : 'Telegram: не подключён');
       const ready = googleConnected && telegramConnected;
-      setState(els.serverSetupState, ready ? 'ready' : 'pending', ready ? `Сервер: работает · ДТ: ${serverWatchCount}` : 'Сервер: ожидает Google и Telegram');
+      setState(els.serverSetupState, ready ? 'ready' : 'pending', ready ? `Сервер: работает · ДТ: ${serverWatchCount}` : 'Сервер: ожидает входа и подключения уведомлений');
     }
     function mergeCloudRecords(remoteRecords = []) {
       const merged = new Map();
@@ -1399,7 +1406,7 @@ import { createTelegramClient } from './modules/telegram/client.js';
       await pullCoworkerNotifications();
       saveRecords();
       render();
-      els.line.textContent = 'Синхронизация Google завершена: ' + records.length + ' ДТ';
+      els.line.textContent = 'Синхронизация завершена: ' + records.length + ' ДТ';
     }
     async function pullCoworkerNotifications() {
       if (!googleConnected || !settings.helpCoworkers) return 0;
@@ -1474,9 +1481,9 @@ import { createTelegramClient } from './modules/telegram/client.js';
         els.telegramStatus.textContent = result.linked
           ? 'Telegram: подключён' + (result.username ? ` (@${result.username})` : '') + ` · ДТ: ${result.watchCount || 0}`
           : 'Telegram: не подключён';
-        if (result.google) {
+        if (result.identity || result.google) {
           googleConnected = true;
-          renderGoogleProfile(result.google);
+          renderGoogleProfile(result.identity || result.google);
           await refreshAccessState();
           if (!googleCloudLoaded) await pullCloudAndMerge();
         }

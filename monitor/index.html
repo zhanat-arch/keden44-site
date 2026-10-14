@@ -7,7 +7,7 @@
   <title>KEDEN44 Control - Монитор ДТ</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <script>
-    window.KEDEN44_RELEASE = '2026.10.14.2';
+    window.KEDEN44_RELEASE = '2026.10.14.3';
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       let reloadingForWorker = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -57,8 +57,8 @@
   <details class="backgroundSetup">
     <summary><strong id="backgroundSetupTitle">Фоновая проверка сервером</strong><span>Настройки и состояние</span></summary>
     <div class="backgroundSetupBody" aria-labelledby="backgroundSetupTitle">
-      <div><p>Войдите через Google и подключите Telegram. После синхронизации монитор можно закрыть: сервер продолжит проверять статусы ДТ по QR и отправлять уведомления об изменениях в Telegram.</p><p>Чтобы получать запросы документов и сведений, уведомления о назначении и завершении контроля и другие подробные события, оставьте вкладку KEDEN открытой с включённым расширением KEDEN44. Вкладку можно свернуть. Подробные уведомления поступают только пока вы авторизованы в KEDEN. При бездействии сессия может завершиться примерно через 20 минут, после чего потребуется повторный вход.</p></div>
-      <div class="setupStates"><span id="googleSetupState" data-state="pending">Google: не подключён</span><span id="telegramSetupState" data-state="pending">Telegram: не подключён</span><span id="serverSetupState" data-state="pending">Сервер: ожидает подключения</span></div>
+      <div><p>Войдите через Google и подключите Telegram либо выберите «Войти через Telegram-бота». В диалоговом окне появятся QR-код и ссылка: откройте бота и подтвердите вход. Google-аккаунт не нужен; используем Telegram ID, номер телефона для входа не запрашиваем. После синхронизации монитор можно закрыть: сервер продолжит проверять статусы ДТ по QR и отправлять уведомления об изменениях в Telegram.</p><p>Чтобы получать запросы документов и сведений, уведомления о назначении и завершении контроля и другие подробные события, оставьте вкладку KEDEN открытой с включённым расширением KEDEN44. Вкладку можно свернуть. Подробные уведомления поступают только пока вы авторизованы в KEDEN. При бездействии сессия может завершиться примерно через 20 минут, после чего потребуется повторный вход.</p></div>
+      <div class="setupStates"><span id="googleSetupState" data-state="pending">Аккаунт: не подключён</span><span id="telegramSetupState" data-state="pending">Telegram: не подключён</span><span id="serverSetupState" data-state="pending">Сервер: ожидает подключения</span></div>
       <small>В открытом тесте: невыпущенные ДТ — каждые 5 минут, условно выпущенные — каждый час. Все типы уведомлений включены.</small>
     </div>
   </details>
@@ -76,7 +76,7 @@
   <script src="./pdf.min.js"></script>
   <script src="./pdf-lib.min.js"></script>
   <script src="./jsQR.js"></script>
-  <script type="module" src="./app.js?v=40"></script>
+  <script type="module" src="./app.js?v=41"></script>
   <script type="module" src="./monitor-public.js?v=4"></script>
 </body>
 </html>
