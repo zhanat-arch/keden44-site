@@ -49,6 +49,7 @@ export function createTelegramClient({
     createLink: () => authenticated('/link'),
     sync: watches => credentials ? authenticated('/sync', { watches }) : Promise.resolve({ ok: true, skipped: true, watchCount: 0 }),
     googleAuth: credential => authenticated('/auth/google', { credential }),
+    googleChallenge: () => authenticated('/auth/google/challenge'),
     cloudPull: () => authenticated('/cloud/pull'),
     cloudPush: (records, settings) => authenticated('/cloud/push', { records, settings }),
     accessStatus: () => authenticated('/access/status', { clientType: 'monitor' }),

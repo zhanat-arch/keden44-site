@@ -1444,15 +1444,25 @@ import { createTelegramClient } from './modules/telegram/client.js';
         els.line.textContent = 'Вход Google не выполнен: ' + error.message;
       }
     }
-    function initializeGoogleSignIn(attempt = 0) {
+    async function initializeGoogleSignIn(attempt = 0) {
       if (!els.googleSignIn || googleConnected) return;
       if (!window.google?.accounts?.id) {
         if (attempt < 40) setTimeout(() => initializeGoogleSignIn(attempt + 1), 250);
         return;
       }
-      window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+      let challenge;
+      try {
+        challenge = await telegram.googleChallenge();
+      } catch (error) {
+        els.line.textContent = 'Не удалось подготовить защищённый вход: ' + error.message;
+        setTimeout(() => initializeGoogleSignIn(), 60_000);
+        return;
+      }
+      if (googleConnected) return;
+      window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, nonce: challenge.nonce, callback: handleGoogleCredential });
       els.googleSignIn.replaceChildren();
       window.google.accounts.id.renderButton(els.googleSignIn, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'rectangular' });
+      setTimeout(() => initializeGoogleSignIn(), 10 * 60_000);
     }
     async function refreshTelegramStatus() {
       try {
