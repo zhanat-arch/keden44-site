@@ -2,6 +2,7 @@ import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarat
 import { latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { normalizeExtensionGoods } from './modules/core/goods.js';
+import { createBoardView } from './modules/core/board-view.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
 import { requestKedenCheck } from './modules/keden/client.js';
@@ -36,6 +37,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
     };
     const store = (() => { try { return window.localStorage || null; } catch { return null; } })();
     const telegram = createTelegramClient({ storage: store });
+    const boardView = createBoardView(() => render());
     const telegramLogin = installTelegramLogin(telegram, async () => {
       await refreshTelegramStatus();
       await syncTelegramWatches();
@@ -595,7 +597,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         lastRenderAt = performance.now();
         const g = grouped();
         const sortedArchive = sortWithShipmentGroups(g.archive, record => submissionDateFromDtNumber(record.dtNumber)?.getTime() || new Date(record.updatedAt || 0).getTime());
-        const visibleArchive = sortedArchive.slice(0, archiveVisibleCount);
+        const visibleArchive = sortedArchive;
         els.summary.innerHTML = [['Всего', records.length], ['Активные', g.work.length + g.conditional.length], ['Требуют внимания', records.filter(recordNeedsAttention).length], ['Условный / обеспечение', records.filter(r => !r.archived && statusKind(r.status) === 'conditional').length], ['Выпущены', records.filter(r => isReleased(r.status)).length]].map(([label, value], index) => '<div class="sum">' + (index ? '<span aria-hidden="true">|</span>' : '') + '<span>' + label + ':</span><b>' + value + '</b></div>').join('');
         draw(els.changed, [...g.changed].sort((a, b) => latestEventTime(b) - latestEventTime(a)), false, true);
         draw(els.work, g.work);
@@ -603,7 +605,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         draw(els.released, g.released);
         draw(els.archive, visibleArchive, false, true);
         const archiveRemaining = sortedArchive.length - visibleArchive.length;
-        els.archiveMoreBtn.hidden = false;
+        els.archiveMoreBtn.hidden = true;
         els.archiveMoreBtn.disabled = sortedArchive.length <= 20;
         els.archiveMoreBtn.textContent = archiveRemaining > 0 ? 'Показать все (' + sortedArchive.length + ')' : sortedArchive.length > 20 ? 'Показать первые 20' : 'Показаны все (' + sortedArchive.length + ')';
         els.cc.textContent = g.changed.length;
@@ -616,6 +618,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
     function draw(container, items, sortByDeadline = false, preserveOrder = false) {
       container.innerHTML = '';
       if (!items.length) {
+        boardView.update(container.id, 0);
         container.innerHTML = '<p class="empty">Пусто</p>';
         return;
       }
@@ -624,7 +627,8 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         : sortByDeadline
           ? sortWithShipmentGroups(items, record => conditionalInfo(record)?.deadline?.getTime() || Infinity, true)
           : sortWithShipmentGroups(items, record => new Date(record.updatedAt || 0).getTime());
-      orderedItems.forEach(record => {
+      boardView.update(container.id, orderedItems.length);
+      orderedItems.slice(0, boardView.limit(container.id)).forEach(record => {
         const node = card(record);
         const clearButton = node.querySelector('[data-action="clear"]');
         if (clearButton) clearButton.hidden = !record.changed;
