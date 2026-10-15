@@ -1,5 +1,10 @@
 const timeline=document.getElementById('timeline');
 const reader=document.getElementById('reader');
+const discussion=document.createElement('a');
+discussion.className='discussionButton';discussion.textContent='Обсудить в Telegram';discussion.target='_blank';discussion.rel='noopener noreferrer';discussion.hidden=true;
+reader.querySelector('.readerBottom').prepend(discussion);
+const discussionPrompt=document.createElement('p');discussionPrompt.className='outcome';discussionPrompt.textContent='Вспомнили, как это было? Расскажите свою историю в комментариях. Пару ласковых системе тоже можно — без перехода на личности.';reader.querySelector('article').append(discussionPrompt);
+timeline.addEventListener('click',event=>{const button=event.target.closest('[data-story]');if(!button)return;const url=STORY_DISCUSSIONS[button.dataset.story];discussion.hidden=!url;if(url)discussion.href=url;});
 let selected=null;
 const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function drawThread(){
