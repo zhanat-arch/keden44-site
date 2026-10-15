@@ -1,4 +1,5 @@
 const FIELDS = [
+  ['regime', 'режим ДТ'],
   ['name', 'имя файла'],
   ['releaseDate', 'дата выпуска'],
   ['declarant', 'декларант'],

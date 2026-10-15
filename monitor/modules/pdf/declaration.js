@@ -1,3 +1,5 @@
+import { pdfRegime } from '../core/regime.js';
+
 function clean(value = '') {
   return String(value)
     .replace(/\s+/g, ' ')
@@ -79,6 +81,7 @@ export function parseStandardDtPage(items = [], pageWidth = 596, pageHeight = 84
   const cleanDeclarant = withoutLabel(declarantLines, /Декларант/i);
   const cleanTransport = withoutLabel(transportLines, /^прибытии$/i);
   return {
+    regime: pdfRegime(items, pageWidth, pageHeight),
     sender: senderLines.join(' ').replace(/^№\s*/i, ''),
     receiver: receiverText.replace(/^№?\s*\d{12}\s*/i, ''),
     receiverBin: receiverText.match(/\b\d{12}\b/)?.[0] || '',

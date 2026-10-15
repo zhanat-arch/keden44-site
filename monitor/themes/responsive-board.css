@@ -258,3 +258,16 @@ body.fileDragActive #importPdfBtn {
     grid-template-columns: 1fr;
   }
 }
+.dtRegime {
+  display: inline-block;
+  padding: 3px 5px;
+  margin-right: 5px;
+  border: 1px solid #dbe2e9;
+  border-radius: 4px;
+  background: #eef2f5;
+  color: #435264;
+  font-size: 11px;
+  line-height: 1.2;
+  vertical-align: middle;
+  white-space: nowrap;
+}

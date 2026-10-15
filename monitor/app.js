@@ -1,6 +1,8 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
 import { latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
+import { normalizeRegime } from './modules/core/regime.js';
+import { refreshedFields } from './modules/core/refresh.js';
 import { normalizeExtensionGoods } from './modules/core/goods.js';
 import { createBoardView } from './modules/core/board-view.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
@@ -780,7 +782,8 @@ import { installTelegramLogin } from './modules/telegram/login.js';
       const statusBadge = '<span class="pill ' + pillClass + '">' + esc(statusLabel) + '</span>';
       const notificationHelpHtml = '<details class="notificationHelp"><summary aria-label="О запросах и уведомлениях" title="О запросах и уведомлениях">?</summary><div>Запросы и подробные уведомления поступают только через расширение KEDEN44. Для их получения расширение должно работать в браузере с открытой сессией KEDEN. <a href="https://keden44.com/extension/" target="_blank" rel="noopener noreferrer">Страница расширения</a></div></details>';
       const notificationSection = '<div class="notificationWithHelp"><div>' + requestHtml + kedenEventHtml + '</div>' + notificationHelpHtml + '</div>';
-      node.innerHTML = '<div class="cardTop"><div><h3>' + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + notificationSection + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
+      const regime = normalizeRegime(record.regime);
+      node.innerHTML = '<div class="cardTop"><div><h3>' + (regime ? '<span class="dtRegime">' + regime + '</span> ' : '') + declarationNumberHtml(record.dtNumber) + '</h3></div><div class="cardBadges">' + inspectionBadge + statusBadge + '</div></div>' + controlsHtml + notificationSection + relationshipHtml + '<div class="meta primaryMeta">' + meta + '</div>' + noteHtml + deadlineHtml + detailsHtml + noteEditorHtml + '<div class="cardActions">' + actionsHtml + '</div>';
       if (record.transientDuplicate) {
         node.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
           records = records.filter(item => item.id !== record.id);
@@ -1051,6 +1054,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         id: crypto.randomUUID(),
         name: file.name.replace(/\.pdf$/i, ''),
         dtNumber,
+        regime: normalizeRegime(fields.regime),
         status: fields.status || 'Нужна проверка',
         releaseDate: fields.releaseDate || '',
         declarant: fields.declarant || '', declarantBin: fields.declarantBin || '', transport: fields.transport || '',
@@ -1138,23 +1142,6 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         existing.history = [...(existing.history || []), now() + ': повторная загрузка'
           + (mergedFields.length ? ', дозаполнены: ' + mergedFields.join(', ') : ', оригинал не изменён')];
         if (mergedFields.length) existing.updatedAt = new Date().toISOString();
-        const duplicateId = crypto.randomUUID();
-        records.unshift({
-          ...importedRecord,
-          id: duplicateId,
-          status: 'Повтор ДТ',
-          kedenUrl: '',
-          qrImageDataUrl: '',
-          hasFirstPagePreview: false,
-          transientDuplicate: true,
-          description: `Оригинал уже есть в мониторе. Его текущий статус: ${existing.status || 'не определён'}. `
-            + (mergedFields.length ? `Дозаполнено: ${mergedFields.join(', ')}. ` : '') + 'Эта копия исчезнет через 5 минут.',
-          history: [now() + ': повторная загрузка, оригинал не изменён'],
-        });
-        setTimeout(() => {
-          records = records.filter(record => record.id !== duplicateId);
-          render();
-        }, 5 * 60 * 1000);
         els.line.textContent = `Эта ДТ уже есть. Текущий статус: ${existing.status || 'не определён'}`;
       } else {
         records.unshift(importedRecord);
@@ -1203,7 +1190,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         if (data.fields && Object.keys(data.fields).length) {
           const previous = { ...record };
           const firstFill = !record.status || record.status === 'Нужна проверка';
-          const next = { ...record, ...data.fields };
+          const next = refreshedFields(record, data.fields);
           const changes = diff(record, next);
           const notification = notificationForChange(previous, next, changes, settings);
           Object.assign(record, next);
@@ -1781,6 +1768,23 @@ import { installTelegramLogin } from './modules/telegram/login.js';
     saveRecords();
     render();
     if (transferMessage) els.line.textContent = transferMessage;
+    void (async () => {
+      for (const candidate of [...records]) {
+        if (normalizeRegime(candidate.regime) || !candidate.hasFirstPagePreview) continue;
+        try {
+          const blob = await getFirstPagePreview(candidate.id);
+          if (!blob) continue;
+          const fields = await readDeclarationFields(blob);
+          const record = records.find(item => item.id === candidate.id);
+          if (record && !normalizeRegime(record.regime) && normalizeRegime(fields.regime)) {
+            record.regime = normalizeRegime(fields.regime);
+            record.updatedAt = new Date().toISOString();
+            saveRecords();
+            render();
+          }
+        } catch (error) { console.warn('PDF regime unavailable', error.message); }
+      }
+    })();
     importSharedPdfsFromUrl();
     let lastResumeCheck = 0;
     function refreshOnResume() {
