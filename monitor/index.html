@@ -7,7 +7,7 @@
   <title>KEDEN44 Control - Монитор ДТ</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <script>
-    window.KEDEN44_RELEASE = '2026.10.15.2';
+    window.KEDEN44_RELEASE = '2026.10.15.3';
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       let reloadingForWorker = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -48,6 +48,8 @@
   <link rel="stylesheet" href="./themes/responsive-board.css">
   <link rel="stylesheet" href="./monitor-public.css?v=8">
   <style>.logBox{display:none}.summary{display:flex;flex-wrap:wrap;gap:8px 20px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.summary .sum{display:flex;align-items:baseline;gap:7px;padding:0;border:0;border-radius:0;background:transparent}.summary .sum b{font-size:20px}.summary .sum span{font-size:13px}.backgroundHelpSettings{margin:10px 28px}.backgroundHelpSettings>details{padding:12px;border-top:1px solid var(--line)}@media(max-width:720px){.backgroundHelpSettings{margin-left:14px;margin-right:14px}}</style>
+  <link rel="stylesheet" href="./blog-strip.css">
+  <script type="module" src="./blog-strip.js"></script>
 </head>
 <body>
   <header class="top"><div><p><a class="homeLink" href="/">KEDEN44 Control</a></p><h1>Монитор статусов ДТ</h1></div><div class="actions"><button id="kedenRequestHealth" class="requestHealth" data-state="unknown" type="button" title="Состояние чтения запросов KEDEN" aria-label="Состояние чтения запросов KEDEN"><span aria-hidden="true"></span></button><div id="googleSignIn" class="googleSignIn" title="Синхронизировать монитор через Google"><button type="button" class="googleFallback">Войти через Google</button></div><button id="installBtn" title="Установить монитор как приложение">Установить</button><button id="telegramBtn" title="Получать уведомления в Telegram">Подключить Telegram</button><button id="notifyBtn" title="Разрешить системные уведомления">Уведомления</button><button id="importPdfBtn" class="primary">Импорт PDF</button><input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple hidden><input id="jsonInput" type="file" accept="application/json,.json" hidden><details class="moreActions"><summary>Ещё</summary><div class="moreMenu"><a href="/help/">Вопросы и ответы</a><a href="/guide.html">Как прикрепить документы</a><a href="/extension/">Расширение KEDEN44</a><a href="/subscription/">Подписка</a><a href="/support/">Поддержать проект</a><button id="clientRecipientsBtn" type="button">Клиенты Telegram</button><button id="addBtn">Добавить вручную</button><button id="exportBtn">Создать резервную копию</button><button id="importJsonBtn">Восстановить из копии</button></div></details></div></header>

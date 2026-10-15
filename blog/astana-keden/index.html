@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Между грузом и кнопкой · KEDEN44</title>
+<meta name="description" content="От АСТАНА-1 к KEDEN: рабочие истории декларантов, взаимопомощь и маленькие победы. Хроника 2024–2026 от KEDEN44.">
+<link rel="canonical" href="https://keden44.com/blog/astana-keden/">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><a class="brand" href="/blog/"><img src="icon.png" alt="">KEDEN44 <span>Дневник декларанта</span></a><a class="local" href="/blog/">Все публикации ↗</a></header>
+<main>
+<section class="intro">
+ <p class="eyebrow">Рабочая хроника · 2024–2026</p>
+ <h1>От АСТАНА-1<br>к <span>KEDEN.</span></h1>
+ <h2>Между грузом и кнопкой</h2>
+ <p class="epigraph">Интернет всё помнит.<br>А чтобы напомнить, мы создали эту хронологию.</p>
+ <p class="lead">Не история ошибок. История людей, которые оформляли грузы, спорили, помогали друг другу и понемногу делали работу удобнее.</p>
+ <div class="introBottom"><a href="#chronicle">Листать историю <span aria-hidden="true">↓</span></a><p>По мотивам реальных обсуждений.<br>Без имён. С уважением к людям. С юмором к ситуациям.</p></div>
+</section>
+<section id="chronicle" class="chronicle">
+ <div class="controls"><div class="years" role="group" aria-label="Год"><button type="button" class="active" data-year="all" aria-pressed="true">Вся история</button><button type="button" data-year="2024" aria-pressed="false">2024</button><button type="button" data-year="2025" aria-pressed="false">2025</button><button type="button" data-year="2026" aria-pressed="false">2026</button></div><span id="storyCount" aria-live="polite"></span></div>
+ <div class="legend"><span><i class="astanaDot"></i>АСТАНА-1</span><span><i class="bridgeDot"></i>Между системами</span><span><i class="kedenDot"></i>KEDEN</span></div>
+ <div id="timeline" class="timeline"><svg id="thread" aria-hidden="true"><path></path></svg></div>
+</section>
+<section class="outro">
+ <p class="eyebrow">Следующий виток</p><h2>Сделали лучше?<br>Спасибо. Есть ещё пара предложений.</h2>
+ <p>Вчера хотелось, чтобы работало. Сегодня — чтобы было понятно и удобно. Не неблагодарность. Просто прогресс приучает к хорошему.</p>
+ <p>А где остаётся рутина, появляются разработчики, энтузиасты и специалисты, которым надоело повторять одно и то же. Так появился KEDEN44: опыт декларанта, помощь ИИ с кодом и проверка на настоящей работе.</p>
+ <div class="outroLinks"><a href="https://keden44.com/monitor/" target="_blank" rel="noopener">Открыть Монитор ↗</a><a href="https://keden44.com/extension/" target="_blank" rel="noopener">Расширение KEDEN44 ↗</a></div>
+</section>
+<section class="newsSignup" aria-labelledby="newsTitle">
+ <p class="eyebrow">История продолжается</p><h2 id="newsTitle">Продолжение следует.</h2>
+ <p>Новые истории, мемы, «Злоба дня» и обновления KEDEN44. Будем присылать ссылки в Telegram — нечасто и по делу.</p>
+ <a class="newsButton" href="https://t.me/keden44_monitor_bot?start=news" target="_blank" rel="noopener">Подписаться на новости</a>
+ <p id="newsStatus" class="newsStatus">В боте KEDEN44: новые публикации, обновления и предложения проекта. Подписка добровольная. Новости отключаются отдельно от уведомлений по ДТ.</p>
+</section>
+</main>
+<footer><strong>KEDEN44 · Дневник декларанта</strong><p>Литературный пересказ одного архива, а не официальная история систем. Цитаты сокращены без изменения смысла. Причины сбоев и юридические выводы по переписке не устанавливаются. Старые советы не являются актуальными инструкциями.</p><span>Подготовлено с помощью ИИ под редакцией команды KEDEN44.</span></footer>
+<dialog id="reader" aria-labelledby="readerTitle"><div class="readerTop"><span id="readerDate"></span><button id="closeReader" type="button" aria-label="Закрыть рассказ">Закрыть ×</button></div><article><p id="readerSystem" class="eyebrow"></p><h2 id="readerTitle"></h2><div id="readerBody"></div><p id="readerOutcome" class="outcome"></p></article><div class="readerBottom"><button id="shareStory" type="button">Поделиться текстом</button><span id="shareStatus" role="status"></span></div></dialog>
+<script src="stories.js"></script><script src="app.js"></script>
+</body></html>
