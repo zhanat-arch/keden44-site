@@ -163,13 +163,14 @@ function renderExtensions(installations = []) {
     const keden = cell(row, installation.online ? extensionState(installation.lastState?.reason) : 'Текущее состояние неизвестно');
     keden.className = installation.online && installation.lastState?.ok ? 'state ok' : 'state wait';
     cell(row, installation.lastState?.version || '—');
+    cell(row, ({ test: 'Тестовая', release: 'Релизная', candidate: 'Кандидат' })[installation.lastState?.buildChannel] || 'Не указан');
     cell(row, installation.sampleCount || 0);
     body.append(row);
   }
   if (!installations.length) {
     const row = document.createElement('tr');
     const empty = cell(row, 'Сигналы от расширений ещё не поступали.', 'emptyRow');
-    empty.colSpan = 6;
+    empty.colSpan = 7;
     body.append(row);
   }
 }
