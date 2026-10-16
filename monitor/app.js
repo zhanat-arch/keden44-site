@@ -462,7 +462,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
           }
           if (isNew && !(record.kedenReadNotificationIds || []).includes(item.id)) {
             if (!(record.kedenReadNotificationIds || []).includes(item.id)) record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
-            record.changed = true;
+            record.changed = true; record.changeDetectedAt = new Date().toISOString();
             record.updatedAt = new Date().toISOString();
             const timestamp = notificationTimestamp(item.deliveredAt);
             const date = Number.isNaN(timestamp) ? '' : new Date(timestamp).toLocaleString('ru-RU');
@@ -883,7 +883,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
     }
     function getFormData() { return Object.fromEntries(new FormData(els.entryForm).entries()); }
     function diff(oldRecord, nextRecord) { const labels = { name:'имя', dtNumber:'ДТ', status:'статус', releaseDate:'дата выпуска', declarant:'декларант', declarantBin:'БИН декларанта', transport:'транспорт', containers:'контейнер', sender:'отправитель', receiver:'получатель', receiverBin:'БИН получателя', invoice:'инвойс', tnved:'ТН ВЭД', goods:'товар', customsValue:'стоимость', netWeight:'нетто', grossWeight:'брутто' }; return Object.keys(labels).filter(key => String(oldRecord[key] || '') !== String(nextRecord[key] || '')).map(key => labels[key] + ': "' + (oldRecord[key] || '-') + '" -> "' + (nextRecord[key] || '-') + '"'); }
-    function saveForm(event) { event.preventDefault(); const data = getFormData(); let record = records.find(r => r.id === data.id); if (record) { const changes = diff(record, data); Object.assign(record, data, { updatedAt: new Date().toISOString() }); if (changes.length) { record.changed = true; record.history = [...(record.history || []), now() + ': ' + changes.join('; ')]; } } else { records.unshift({ ...data, id: crypto.randomUUID(), changed: false, archived: false, lastChecked: now(), checkedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), logs: [now() + ' | Ручное создание записи'], history: [now() + ': создана запись'] }); } saveRecords(); render(); closeForm(); }
+    function saveForm(event) { event.preventDefault(); const data = getFormData(); let record = records.find(r => r.id === data.id); if (record) { const changes = diff(record, data); Object.assign(record, data, { updatedAt: new Date().toISOString() }); if (changes.length) { record.changed = true; record.changeDetectedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + ': ' + changes.join('; ')]; } } else { records.unshift({ ...data, id: crypto.randomUUID(), changed: false, archived: false, lastChecked: now(), checkedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), logs: [now() + ' | Ручное создание записи'], history: [now() + ': создана запись'] }); } saveRecords(); render(); closeForm(); }
 
 
     async function readQrFromPdfBottom(file) {
@@ -1205,6 +1205,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
             : changes.length ? now() + ': ' + changes.join('; ') : now() + ': без изменений'];
           if (changes.length && !firstFill) {
             record.changed = true;
+            record.changeDetectedAt = new Date().toISOString();
             if (notification) sendNotice(notification.title, notification.body, `change:${record.id}:${record.status}:${record.releaseDate || ''}`);
           }
           els.line.textContent = changes.length && !firstFill
@@ -1273,9 +1274,9 @@ import { installTelegramLogin } from './modules/telegram/login.js';
       }
       if (changed) saveRecords();
     }
-    function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; record.kedenReadNotificationIds = [...new Set([...(record.kedenReadNotificationIds || []), ...(record.kedenUnreadNotificationIds || [])])].slice(-2000); record.kedenUnreadNotificationIds = []; if (isCleared(record.status)) record.archived = true; record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
+    function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; record.changeAcknowledgedAt = new Date().toISOString(); record.kedenReadNotificationIds = [...new Set([...(record.kedenReadNotificationIds || []), ...(record.kedenUnreadNotificationIds || [])])].slice(-2000); record.kedenUnreadNotificationIds = []; if (isCleared(record.status)) { record.archived = true; record.archiveUpdatedAt = new Date().toISOString(); } record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
     function setRequestWorkflow(id, value) { const record = records.find(r => r.id === id); if (!record) return; record.requestWorkflow = value; record.requestWorkflowAt = new Date().toISOString(); record.updatedAt = record.requestWorkflowAt; record.history = [...(record.history || []), now() + (value === 'done' ? ': ответ на запрос отправлен' : ': начат сбор документов по запросу')]; saveRecords(); render(); }
-    function toggleArchive(id) { const record = records.find(r => r.id === id); if (!record) return; record.archived = !record.archived; record.updatedAt = new Date().toISOString(); saveRecords(); render(); }
+    function toggleArchive(id) { const record = records.find(r => r.id === id); if (!record) return; record.archived = !record.archived; record.archiveUpdatedAt = new Date().toISOString(); record.updatedAt = new Date().toISOString(); saveRecords(); render(); }
     async function deleteRecord(id) { const record = records.find(r => r.id === id); if (!record) return; if (!window.confirm('Удалить запись "' + (record.name || record.dtNumber || 'без имени') + '"?')) return; records = records.filter(r => r.id !== id); await Promise.all([deleteFirstPagePreview(id).catch(() => {}), deleteSupportDocument(id).catch(() => {})]); saveRecords(); render(); }
     function applySettings() {
       els.workInterval.value = settings.workMinutes;
@@ -1364,6 +1365,26 @@ import { installTelegramLogin } from './modules/telegram/login.js';
       const ready = googleConnected && telegramConnected;
       setState(els.serverSetupState, ready ? 'ready' : 'pending', ready ? `Сервер: работает · ДТ: ${serverWatchCount}` : 'Сервер: ожидает входа и подключения уведомлений');
     }
+    function mergeRecordReadState(left = {}, right = {}) {
+      const time = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
+      const latest = field => time(left[field]) >= time(right[field]) ? left[field] : right[field];
+      const read = [...new Set([...(left.kedenReadNotificationIds || []), ...(right.kedenReadNotificationIds || [])])].slice(-2000);
+      const unread = [...new Set([...(left.kedenUnreadNotificationIds || []), ...(right.kedenUnreadNotificationIds || [])])].filter(id => !read.includes(id)).slice(-100);
+      const acknowledged = latest('changeAcknowledgedAt');
+      const detected = latest('changeDetectedAt');
+      const result = { kedenReadNotificationIds: read, kedenUnreadNotificationIds: unread };
+      if (acknowledged) {
+        result.changeAcknowledgedAt = acknowledged;
+        result.changed = unread.length > 0 || time(detected) > time(acknowledged);
+      }
+      if (detected) result.changeDetectedAt = detected;
+      if (left.archiveUpdatedAt || right.archiveUpdatedAt) {
+        const archive = time(left.archiveUpdatedAt) >= time(right.archiveUpdatedAt) ? left : right;
+        result.archiveUpdatedAt = archive.archiveUpdatedAt;
+        result.archived = Boolean(archive.archived);
+      }
+      return result;
+    }
     function mergeCloudRecords(remoteRecords = []) {
       const merged = new Map();
       const keyOf = record => declarationNumberParts(record?.dtNumber || '').baseNumber || record?.id;
@@ -1372,9 +1393,9 @@ import { installTelegramLogin } from './modules/telegram/login.js';
         const key = keyOf(record);
         if (!key) continue;
         const current = merged.get(key);
-        const read = [...new Set([...(current?.kedenReadNotificationIds || []), ...(record.kedenReadNotificationIds || [])])].slice(-2000);
+        const readState = mergeRecordReadState(current, record);
         const winner = !current || Date.parse(record.updatedAt || 0) >= Date.parse(current.updatedAt || 0) ? record : current;
-        merged.set(key, { ...winner, kedenReadNotificationIds: read, kedenUnreadNotificationIds: (winner.kedenUnreadNotificationIds || []).filter(id => !read.includes(id)) });
+        merged.set(key, { ...winner, ...readState });
       }
       records = normalizeStoredRecords([...merged.values()]);
     }
@@ -1427,7 +1448,9 @@ import { installTelegramLogin } from './modules/telegram/login.js';
     function scheduleCloudSync() {
       if (!googleConnected || !googleCloudLoaded) return;
       clearTimeout(cloudSyncTimer);
-      cloudSyncTimer = setTimeout(() => pushCloud().catch(() => {}), 1200);
+      cloudSyncTimer = setTimeout(() => pushCloud().catch(error => {
+        showSyncState('error', 'Изменения сохранены на устройстве, но не отправлены на сервер: ' + error.message);
+      }), 1200);
     }
     async function handleGoogleCredential(response) {
       try {
