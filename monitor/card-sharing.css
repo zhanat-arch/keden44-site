@@ -1,4 +1,8 @@
-.cardSharingDialog { width: min(520px, calc(100% - 32px)); box-sizing: border-box; }
+.cardSharingDialog { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow: auto; }
+.cardSharingDialog [hidden] { display: none !important; }
+.cardSharingDialog > p, .cardSharingDialog > label { margin: 16px; }
+.cardSharingDialog > label { display: grid; gap: 8px; }
+.cardSharingDialog > p:empty { display: none; }
 .cardSharingDialog h2 { font-size: 18px; }
 .cardSharingDialog p { overflow-wrap: anywhere; line-height: 1.5; }
 .cardSharingDialog input { width: 100%; box-sizing: border-box; }
