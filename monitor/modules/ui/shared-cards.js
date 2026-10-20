@@ -1,12 +1,13 @@
 const KEY = 'keden44-shared-card-links-v1';
 const valid = token => typeof token === 'string' && /^[a-f0-9]{64}$/.test(token);
-export function installSharedCards() {
+export function installSharedCards({client, signedIn = () => false} = {}) {
   const board = document.querySelector('.board');
   if (!board) return;
   let tokens = [];
   try {tokens = JSON.parse(localStorage.getItem(KEY) || '[]');} catch {}
   tokens = Array.isArray(tokens) ? [...new Set(tokens.filter(valid))].slice(0, 20) : [];
   const incoming = new URLSearchParams(location.hash.slice(1)).get('card');
+  let incomingPending = valid(incoming) ? incoming : '';
   if (valid(incoming) && !tokens.includes(incoming) && tokens.length < 20) tokens.push(incoming);
   const save = () => {try {localStorage.setItem(KEY, JSON.stringify(tokens));} catch {}};
   save();
@@ -21,23 +22,50 @@ export function installSharedCards() {
   const addText = (root, tag, value, className = '') => {
     const node = document.createElement(tag); node.textContent = value; node.className = className; root.append(node); return node;
   };
-  for (const token of tokens) {
+  function createNode(token) {
     const node = document.createElement('article');
     node.className = 'card sharedReadOnlyCard';
+    node.dataset.cardType = 'received';
     const body = document.createElement('div'), state = document.createElement('p'), remove = document.createElement('button');
     state.textContent = 'Загружаю карточку…'; state.className = 'tiny'; state.setAttribute('role','status');
     remove.type = 'button'; remove.textContent = 'Убрать из моего монитора';
-    remove.onclick = () => {tokens = tokens.filter(value => value !== token); save(); nodes.delete(token); node.remove(); updateCount();};
+    remove.onclick = async () => {
+      remove.disabled = true;
+      try {
+        if (client && signedIn()) await client.removeReceivedCard(token);
+        tokens = tokens.filter(value => value !== token); save(); nodes.delete(token); node.remove(); updateCount();
+      } catch {state.textContent = 'Не удалось убрать карточку из аккаунта. Повторите.'; remove.disabled = false;}
+    };
     node.append(body, state, remove); list.append(node);
     nodes.set(token, {body, state});
   }
-  function updateCount() {lane.hidden = tokens.length === 0; lane.querySelector('[data-count]').textContent = String(tokens.length);}
+  function updateCount() {
+    for (const [token, target] of nodes) if (!tokens.includes(token)) {target.body.closest('article').remove(); nodes.delete(token);}
+    for (const token of tokens) if (!nodes.has(token)) createNode(token);
+    lane.hidden = tokens.length === 0; lane.querySelector('[data-count]').textContent = String(tokens.length);
+  }
+  async function syncServer() {
+    if (!client || !signedIn()) return;
+    let remote = await client.receivedCards();
+    let identity = '';
+    try {identity = localStorage.getItem(KEY + ':identity') || '';} catch {}
+    const add = !identity ? [...tokens] : [];
+    if (incomingPending) add.push(incomingPending);
+    for (const token of new Set(add)) {
+      try {remote = await client.addReceivedCard(token);} catch (error) {if (error.message !== 'Доступ к карточке отключён') throw error;}
+    }
+    incomingPending = '';
+    tokens = [...new Set((remote.tokens || []).filter(valid))].slice(0,20);
+    try {localStorage.setItem(KEY + ':identity',remote.identity);} catch {}
+    save(); updateCount();
+  }
   updateCount();
   let busy = false;
   async function refresh() {
     if (busy || document.hidden) return;
     busy = true;
     try {
+      try {await syncServer();} catch {for (const target of nodes.values()) target.state.textContent = 'Синхронизация полученных карточек недоступна. Повторим автоматически.';}
       await Promise.all(tokens.map(async token => {
         const target = nodes.get(token);
         if (!target) return;
@@ -51,7 +79,7 @@ export function installSharedCards() {
           target.body.replaceChildren();
           addText(target.body,'h3',[record.regime,record.dtNumber].filter(Boolean).join(' · '));
           addText(target.body,'p',record.status || 'Без статуса','sharedCardStatus');
-          addText(target.body,'p','Только чтение · монитор владельца','tiny');
+          addText(target.body,'p','Полученная · только чтение','tiny');
           if (record.declarant) addText(target.body,'p',record.declarant,'privateData');
           if (record.goods) addText(target.body,'p',record.goods,'privateData sharedCardGoods');
           if (record.releaseDate) addText(target.body,'p','Дата выпуска: '+record.releaseDate,'tiny');

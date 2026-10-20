@@ -12,11 +12,10 @@ import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPag
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
-import { createTelegramClient } from './modules/telegram/client.js?v=2';
+import { createTelegramClient } from './modules/telegram/client.js?v=3';
 import { installTelegramLogin } from './modules/telegram/login.js';
-import { createCardSharing } from './modules/ui/card-sharing.js?v=2';
-import { installSharedCards } from './modules/ui/shared-cards.js';
-installSharedCards();
+import { createCardSharing } from './modules/ui/card-sharing.js?v=3';
+import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
 
 (() => {
     const KEY = 'dt-board-records-v6';
@@ -106,6 +105,7 @@ installSharedCards();
     let cloudSyncTimer;
     let googleConnected = false;
     let googleCloudLoaded = false;
+    installSharedCards({client: telegram, signedIn: () => googleConnected});
     const shareCard = createCardSharing({client: telegram, sync: pushCloud,
       signedIn: () => googleConnected && googleCloudLoaded,
       status: message => {els.line.textContent = message;}});
@@ -748,6 +748,7 @@ installSharedCards();
         : '';
       const node = document.createElement('article');
       node.className = 'card';
+      node.dataset.cardType = 'own';
       const menuItems = requestActions + extendButton + letterButton
         + '<button data-action="edit">Править</button><button data-action="archive">' + archiveLabel + '</button><button class="dangerAction" data-action="delete">Удалить</button>';
       const actionsHtml = record.transientDuplicate

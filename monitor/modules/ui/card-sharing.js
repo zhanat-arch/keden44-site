@@ -12,8 +12,8 @@ export function createCardSharing({client, sync, signedIn, status}) {
   const options = () => ({declarant: find('[data-declarant]').checked, notifications: find('[data-notifications]').checked});
   function show(value) {
     active = value.enabled === true;
-    find('[data-declarant]').checked = value.options?.declarant === true;
-    find('[data-notifications]').checked = value.options?.notifications === true;
+    find('[data-declarant]').checked = !value.enabled || value.options?.declarant === true;
+    find('[data-notifications]').checked = !value.enabled || value.options?.notifications === true;
     find('[data-link-label]').hidden = !value.enabled;
     find('[data-copy]').hidden = !value.enabled;
     find('[data-revoke]').hidden = !value.enabled;
