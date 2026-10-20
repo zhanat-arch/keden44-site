@@ -1,0 +1,7 @@
+.cardSharingDialog { width: min(520px, calc(100% - 32px)); box-sizing: border-box; }
+.cardSharingDialog h2 { font-size: 18px; }
+.cardSharingDialog p { overflow-wrap: anywhere; line-height: 1.5; }
+.cardSharingDialog input { width: 100%; box-sizing: border-box; }
+.cardSharingDialog .da { display: flex; gap: 8px; flex-wrap: wrap; }
+.cardSharingDialog button { white-space: normal; }
+.shareCardAction { color: #147753; }

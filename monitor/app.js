@@ -14,6 +14,7 @@ import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, get
 import { recordMatchesQuery } from './modules/core/search.js';
 import { createTelegramClient } from './modules/telegram/client.js';
 import { installTelegramLogin } from './modules/telegram/login.js';
+import { createCardSharing } from './modules/ui/card-sharing.js';
 
 (() => {
     const KEY = 'dt-board-records-v6';
@@ -103,6 +104,9 @@ import { installTelegramLogin } from './modules/telegram/login.js';
     let cloudSyncTimer;
     let googleConnected = false;
     let googleCloudLoaded = false;
+    const shareCard = createCardSharing({client: telegram, sync: pushCloud,
+      signedIn: () => googleConnected && googleCloudLoaded,
+      status: message => {els.line.textContent = message;}});
     let telegramConnected = false;
     let serverWatchCount = 0;
     let renderTimer;
@@ -751,6 +755,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
           + '<button class="iconAction refreshAction" data-action="check" data-tooltip="Проверить статус сейчас" aria-label="Проверить статус сейчас">↻</button>'
           + '<button class="iconAction acceptAction" data-action="clear" data-tooltip="Принять новое изменение" aria-label="Принять новое изменение">✓</button>'
           + '<button class="iconAction noteAction" data-action="note" data-tooltip="Краткая заметка" aria-label="Краткая заметка">✎</button>'
+          + '<button class="iconAction shareCardAction" data-action="share-card" data-tooltip="Поделиться карточкой" aria-label="Поделиться карточкой">↗</button>'
           + '<details class="cardMenu"><summary data-tooltip="Другие действия" aria-label="Другие действия">⋯</summary><div class="cardMenuPopover">' + menuItems + '</div></details>';
       const workflowTime = notificationTimestamp(record.requestWorkflowAt);
       const manualWorkflowCurrent = lastRequest && Number.isFinite(workflowTime) && workflowTime >= lastRequest.time;
@@ -801,6 +806,7 @@ import { installTelegramLogin } from './modules/telegram/login.js';
       node.querySelector('[data-action="request-progress"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'progress'));
       node.querySelector('[data-action="request-done"]')?.addEventListener('click', () => setRequestWorkflow(record.id, 'done'));
       node.querySelector('[data-action="note"]')?.addEventListener('click', () => openCardNoteEditor(node, record));
+      node.querySelector('[data-action="share-card"]')?.addEventListener('click', () => shareCard(record));
       node.querySelector('[data-action="edit"]')?.addEventListener('click', () => openForm(record));
       node.querySelector('[data-action="clear"]')?.addEventListener('click', () => clearChanged(record.id));
       node.querySelector('[data-action="archive"]')?.addEventListener('click', () => toggleArchive(record.id));
