@@ -12,9 +12,11 @@ import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPag
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
-import { createTelegramClient } from './modules/telegram/client.js';
+import { createTelegramClient } from './modules/telegram/client.js?v=2';
 import { installTelegramLogin } from './modules/telegram/login.js';
-import { createCardSharing } from './modules/ui/card-sharing.js';
+import { createCardSharing } from './modules/ui/card-sharing.js?v=2';
+import { installSharedCards } from './modules/ui/shared-cards.js';
+installSharedCards();
 
 (() => {
     const KEY = 'dt-board-records-v6';

@@ -5,10 +5,13 @@ const refresh = document.querySelector('#refresh');
 let stopped = false, loading = false, lastSynced = '';
 const date = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ru-RU') : value;
 function clearCard() {
+  document.querySelector('#addToMonitor').hidden = true;
   card.hidden = true;
   document.querySelector('#number').textContent = '';
   document.querySelector('#status').textContent = '';
   document.querySelector('#details').replaceChildren();
+  document.querySelector('#events').replaceChildren();
+  document.querySelector('#notifications').hidden = true;
   document.querySelector('#sync').textContent = '';
 }
 async function load() {
@@ -32,12 +35,26 @@ async function load() {
     document.querySelector('#inspection').hidden = !record.onInspection;
     const details = document.querySelector('#details');
     details.replaceChildren();
-    for (const [label, value] of [['Первый товар', record.goods], ['Дата выпуска', record.releaseDate], ['Продлено до', record.conditionalExtendedUntil], ['Последняя проверка', date(record.checkedAt)], ['Последнее уведомление', date(record.lastKedenNotificationAt)]]) {
+    for (const [label, value] of [['Декларант', record.declarant], ['Первый товар', record.goods], ['Дата выпуска', record.releaseDate], ['Продлено до', record.conditionalExtendedUntil], ['Последняя проверка', date(record.checkedAt)], ['Последнее уведомление', date(record.lastKedenNotificationAt)]]) {
       if (!value) continue;
       const dt = document.createElement('dt'), dd = document.createElement('dd');
       dt.textContent = label; dd.textContent = value; details.append(dt, dd);
     }
+    const events = document.querySelector('#events');
+    events.replaceChildren();
+    document.querySelector('#notifications').hidden = !Array.isArray(record.notifications);
+    if (Array.isArray(record.notifications)) {
+      for (const item of record.notifications) {
+        const entry = document.createElement('div'), time = document.createElement('small'), text = document.createElement('p');
+        entry.className = 'sharedNotification'; time.textContent = item.date; text.textContent = item.text;
+        entry.append(time, text); events.append(entry);
+      }
+      if (!record.notifications.length) events.textContent = 'Сохранённых уведомлений пока нет';
+    }
     card.hidden = false;
+    const add = document.querySelector('#addToMonitor');
+    add.href = '/monitor/#card=' + token;
+    add.hidden = false;
     lastSynced = data.syncedAt;
     message.textContent = 'Данные монитора владельца · обновление каждые 30 секунд';
     document.querySelector('#sync').textContent = 'Последняя синхронизация владельца: ' + (date(lastSynced) || 'не указана');

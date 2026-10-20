@@ -9,3 +9,13 @@
 .cardSharingDialog .da { display: flex; gap: 8px; flex-wrap: wrap; }
 .cardSharingDialog button { white-space: normal; }
 .shareCardAction { color: #147753; }
+.cardShareOptions { display: grid; gap: 12px; margin: 16px; }
+.cardShareOptions label { display: flex; align-items: center; gap: 8px; }
+.cardShareOptions input[type="checkbox"] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; }
+.cardShareOptions small { color: #667085; line-height: 1.4; }
+.sharedReadOnlyCard p { overflow-wrap: anywhere; }
+.sharedCardStatus { font-weight: 700; color: #147753; }
+.sharedNotification { padding: 10px 0; border-top: 1px solid #dbe3ed; overflow-wrap: anywhere; }
+.sharedNotification p { margin: 4px 0; white-space: pre-wrap; }
+.sharedCardGoods { max-height: 6em; overflow: auto; }
+.sharedCardsLane[hidden] { display: none; }
