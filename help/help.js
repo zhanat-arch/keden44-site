@@ -19,7 +19,7 @@ function filterFaq() {
   for (const item of items) {
     const haystack = normalize(`${item.dataset.search || ''} ${item.textContent}`);
     const matchesSearch = terms.every(term => haystack.includes(term));
-    const matchesCategory = activeCategory === 'all' || item.dataset.category === activeCategory;
+    const matchesCategory = activeCategory === 'all' || (item.dataset.category || '').split(/\s+/).includes(activeCategory);
     item.hidden = !matchesSearch || !matchesCategory;
     if (!item.hidden) visible += 1;
   }
@@ -37,3 +37,15 @@ for (const button of categoryButtons) {
 }
 
 filterFaq();
+function openLinkedAnswer() {
+  const target = document.getElementById(location.hash.slice(1));
+  if (!items.includes(target)) return;
+  search.value = '';
+  activeCategory = 'all';
+  for (const button of categoryButtons) button.classList.toggle('active', button.dataset.category === 'all');
+  filterFaq();
+  target.open = true;
+  target.scrollIntoView({ block: 'start' });
+}
+window.addEventListener('hashchange', openLinkedAnswer);
+openLinkedAnswer();
