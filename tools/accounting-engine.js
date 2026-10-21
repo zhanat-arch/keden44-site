@@ -39,8 +39,9 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
   }
  }finally{await pdf.destroy();}
  const items=[...byId.values()].sort((a,b)=>a.number-b.number);
+ for(const item of items)if(!item.name){const extra=appendix.get(item.number)||'';item.name=extra.match(/ГРУППА ТОВАРОВ\s+1\s*:\s*([\s\S]*?)(?=ТОВАРНЫЙ ЗНАК|МАРКА|МОДЕЛЬ|АРТИКУЛ|КОЛИЧЕСТВО|ПРОИЗВОДИТЕЛЬ|$)/)?.[1]?.replace(/^1\.\s*/,'').replace(/\s+/g,' ').trim()||'';}
  for(const item of items){const extra=appendix.get(item.number)?.trim();if(extra){item.description=extra;for(const [field,tag]of[['article','АРТИКУЛ'],['manufacturer','ПРОИЗВОДИТЕЛЬ'],['brand','МАРКА'],['trademark','ТОВАРНЫЙ ЗНАК'],['model','МОДЕЛЬ'],['serial','СЕРИЙНЫЕ НОМЕРА']])item[field]=extra.match(new RegExp(tag+'\\s+([^;]+)'))?.[1]?.trim();const q=[...extra.matchAll(/КОЛИЧЕСТВО\s+([\d,.]+)\s*([^;]+)/g)];if(q.length===1){item.quantity=dec(q[0][1])?.toString()??null;item.unitName=q[0][2].trim();}else if(q.length>1)warnings.push(`Товар №${item.number}: несколько групп, количество требует проверки`);}
-  for(const key of ['tnved','customsValue','invoiceValue','statValue','quantity'])if(item[key]==null||item[key]==='')warnings.push(`Товар №${item.number}: не извлечено поле ${key}`);
+  for(const key of ['name','tnved','customsValue','invoiceValue','statValue','quantity'])if(item[key]==null||item[key]==='')warnings.push(`Товар №${item.number}: не извлечено поле ${key}`);
   for(const p of item.payments){Object.assign(p,catalog.codes[p.code]||{name:'Неизвестный вид платежа',family:'unknown',review:true});if(p.group==='unknown'||p.group==='review')warnings.push(`Товар №${item.number}: СП ${p.sp} требует проверки`);if(p.family==='unknown')warnings.push(`Товар №${item.number}: неизвестный вид платежа ${p.code}`);}
  }
  const grouped=new Map();for(const item of items)for(const p of item.payments){const key=p.code+'|'+p.sp;const row=grouped.get(key)||{code:p.code,sp:p.sp,group:p.group,name:p.name,amount:'0.00'};row.amount=money(sum([row.amount,p.amount]));grouped.set(key,row);}
