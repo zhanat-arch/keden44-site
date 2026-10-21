@@ -624,10 +624,9 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       }), delay);
     }
     function draw(container, items, sortByDeadline = false, preserveOrder = false) {
-      container.innerHTML = '';
       if (!items.length) {
         boardView.update(container.id, 0);
-        container.innerHTML = '<p class="empty">Пусто</p>';
+        if (!container.querySelector('.empty')) container.innerHTML = '<p class="empty">Пусто</p>';
         return;
       }
       const orderedItems = preserveOrder
@@ -636,12 +635,24 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
           ? sortWithShipmentGroups(items, record => conditionalInfo(record)?.deadline?.getTime() || Infinity, true)
           : sortWithShipmentGroups(items, record => new Date(record.updatedAt || 0).getTime());
       boardView.update(container.id, orderedItems.length);
-      orderedItems.slice(0, boardView.limit(container.id)).forEach(record => {
-        const node = card(record);
+      const previous = new Map([...container.children].map(node => [node._recordId, node]));
+      const retained = new Set();
+      orderedItems.slice(0, boardView.limit(container.id)).forEach((record, index) => {
+        const fingerprint = JSON.stringify(record);
+        const old = previous.get(record.id);
+        const node = old && old._recordFingerprint === fingerprint ? old : card(record);
+        node._recordId = record.id;
+        node._recordFingerprint = fingerprint;
+        if (old && node !== old) {
+          const open = [...old.querySelectorAll('details')].map(detail => detail.open);
+          node.querySelectorAll('details').forEach((detail, i) => { detail.open = !!open[i]; });
+        }
         const clearButton = node.querySelector('[data-action="clear"]');
         if (clearButton) clearButton.hidden = !record.changed;
-        container.appendChild(node);
+        retained.add(node);
+        if (container.children[index] !== node) container.insertBefore(node, container.children[index] || null);
       });
+      [...container.children].forEach(node => { if (!retained.has(node)) node.remove(); });
     }
     function privateHtml(value) { return '<span class="privateData">' + esc(value) + '</span>'; }
     function organizationHtml(value) {
@@ -1236,10 +1247,8 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       if (visualChanged) render();
     }
     async function checkAll() { for (const record of records.filter(r => !r.archived && r.kedenUrl && !isTerminalStatus(r.status))) await check(record.id); }
-    let resumeCheckPending = false;
     async function checkDue(silent = false, forceActive = false) {
       if (dueCheckRunning) {
-        if (forceActive) resumeCheckPending = true;
         return;
       }
       if (!settings.helpQrChecks) {
@@ -1259,10 +1268,6 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
         for (const record of due) await check(record.id);
       } finally {
         dueCheckRunning = false;
-        if (resumeCheckPending) {
-          resumeCheckPending = false;
-          void checkDue(true, true);
-        }
       }
     }
     function checkConditionalReminders() {
@@ -1403,7 +1408,9 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
         if (!key) continue;
         const current = merged.get(key);
         const readState = mergeRecordReadState(current, record);
-        const winner = !current || Date.parse(record.updatedAt || 0) >= Date.parse(current.updatedAt || 0) ? record : current;
+        const time = value => Date.parse(value || '') || 0;
+        const winner = !current || time(record.updatedAt) > time(current.updatedAt)
+          || (time(record.updatedAt) === time(current.updatedAt) && time(record.checkedAt) > time(current.checkedAt)) ? record : current;
         merged.set(key, { ...winner, ...readState });
       }
       records = normalizeStoredRecords([...merged.values()]);
