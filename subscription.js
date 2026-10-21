@@ -9,27 +9,66 @@ let pollTimer;
 let pollCount = 0;
 const purchaseLink = document.querySelector('#purchaseLink');
 const accountStatus = document.querySelector('#subscriptionAccount');
+const loginLink = document.querySelector('#subscriptionLogin');
+const paymentCheck = document.querySelector('.payment-check');
+purchaseLink.after(paymentCheck);
+paymentCheck.style.cssText = 'grid-template-columns:1fr;gap:16px;padding:24px 0';
+paymentCheck.hidden = true;
 let signedIn = false;
+let accountCheck = 0;
+let paymentRevealTimer;
+let accountKey = '';
+function revealPaymentCheck() {
+  clearTimeout(paymentRevealTimer);
+  paymentCheck.hidden = true;
+  if (!signedIn || !accountKey) return;
+  const startedAt = Number(sessionStorage.getItem('keden44-purchase-start:' + accountKey));
+  if (!startedAt) return;
+  const remaining = startedAt + 30000 - Date.now();
+  if (remaining > 0) {
+    paymentRevealTimer = setTimeout(revealPaymentCheck, remaining);
+    return;
+  }
+  paymentCheck.hidden = false;
+}
+purchaseLink.addEventListener('click', () => {
+  if (!signedIn || !accountKey) return;
+  sessionStorage.setItem('keden44-purchase-start:' + accountKey, String(Date.now()));
+  revealPaymentCheck();
+});
 
 async function checkAccount() {
+  const generation = ++accountCheck;
+  clearTimeout(pollTimer);
   signedIn = false;
+  accountKey = '';
+  paymentCheck.hidden = true;
+  clearTimeout(paymentRevealTimer);
   purchaseLink.hidden = true;
   paidButton.disabled = true;
   try {
     const device = credentials();
     if (!device?.accountId || !device?.deviceSecret) {
-      accountStatus.textContent = 'Для подписки войдите через Google в Мониторе и вернитесь сюда.';
+      accountStatus.textContent = 'Для подписки войдите через Google или Telegram в Мониторе.';
+      loginLink.hidden = false;
       return;
     }
     const result = await request('/connection');
-    signedIn = Boolean(result.google?.email);
+    if (generation !== accountCheck) return;
+    const profile = result.identity || result.google;
+    signedIn = Boolean(profile?.email || profile?.telegramId);
     accountStatus.textContent = signedIn
-      ? `Аккаунт подписки: ${result.google.email}`
-      : 'Для подписки войдите через Google в Мониторе и вернитесь сюда.';
+      ? `Вход выполнен: ${profile.email || 'Telegram ID ' + profile.telegramId}`
+      : 'Для подписки войдите через Google или Telegram в Мониторе.';
+    loginLink.hidden = signedIn;
+    accountKey = signedIn ? String(profile.email || 'tg:' + profile.telegramId) : '';
+    revealPaymentCheck();
     purchaseLink.hidden = !signedIn;
     paidButton.disabled = !signedIn;
     if (signedIn && localStorage.getItem(CLAIM_KEY)) await pollClaim();
   } catch {
+    if (generation !== accountCheck) return;
+    loginLink.hidden = false;
     accountStatus.textContent = 'Не удалось проверить аккаунт. Обновите страницу перед оплатой.';
   }
 }
@@ -140,4 +179,7 @@ detailsForm.addEventListener('submit', async event => {
 });
 
 window.addEventListener('focus', checkAccount);
+window.addEventListener('storage', event => {
+  if (event.key === DEVICE_KEY || event.key === null) checkAccount();
+});
 checkAccount();
