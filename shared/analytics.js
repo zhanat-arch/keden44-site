@@ -1,6 +1,6 @@
 (() => {
  if(window.__k44AnalyticsInitialized||!['keden44.com','www.keden44.com'].includes(location.hostname))return;
- const titles={'/':'KEDEN44','/guide.html':'Инструкция KEDEN44','/privacy.html':'Конфиденциальность','/terms.html':'Условия использования','/extension/':'Расширение KEDEN44','/help/':'Справка KEDEN44','/subscription/':'Подписка KEDEN44','/support/':'Поддержать проект','/monitor/':'Монитор KEDEN44','/tools/':'Инструменты KEDEN44','/tools/accounting/':'Отчёты бухгалтеру','/tools/audit/':'Сверка требования','/blog/':'Блог KEDEN44','/blog/astana-keden/':'От АСТАНА-1 к KEDEN','/blog/zagruzka-proshla/':'Загрузка прошла успешно','/blog/reports-and-audit/':'Сверка требований и отчёты бухгалтеру'};
+ const titles={'/blog/attachment-update/':'Обновление прикрепления KEDEN44','/':'KEDEN44','/guide.html':'Инструкция KEDEN44','/privacy.html':'Конфиденциальность','/terms.html':'Условия использования','/extension/':'Расширение KEDEN44','/help/':'Справка KEDEN44','/subscription/':'Подписка KEDEN44','/support/':'Поддержать проект','/monitor/':'Монитор KEDEN44','/tools/':'Инструменты KEDEN44','/tools/accounting/':'Отчёты бухгалтеру','/tools/audit/':'Сверка требования','/blog/':'Блог KEDEN44','/blog/astana-keden/':'От АСТАНА-1 к KEDEN','/blog/zagruzka-proshla/':'Загрузка прошла успешно','/blog/reports-and-audit/':'Сверка требований и отчёты бухгалтеру'};
  const path=location.pathname.replace(/\/index\.html$/,'/')||'/';
  if(!titles[path])return;
  window.__k44AnalyticsInitialized=true;
