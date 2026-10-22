@@ -1,11 +1,4 @@
-(() => {
-  if (!['keden44.com', 'www.keden44.com'].includes(location.hostname)) return;
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = function () { window.dataLayer.push(arguments); };
-  window.gtag('js', new Date());
-  window.gtag('config', 'G-TKXSRRX2X8');
-  const tag = document.createElement('script');
-  tag.async = true;
-  tag.src = 'https://www.googletagmanager.com/gtag/js?id=G-TKXSRRX2X8';
-  document.head.appendChild(tag);
-})();
+// Compatibility entry point for cached older blog pages.
+if(!window.__k44AnalyticsInitialized&&!document.querySelector('script[data-k44-analytics]')){
+ const script=document.createElement('script');script.src='/shared/analytics.js';script.async=true;script.dataset.k44Analytics='';document.head.append(script);
+}

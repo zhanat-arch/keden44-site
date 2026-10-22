@@ -9,18 +9,7 @@
   <link rel="icon" href="/assets/keden44-mark.png">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/home-layout.css?v=20261007">
-  <script>
-    if (location.hostname === 'keden44.com' || location.hostname === 'www.keden44.com') {
-      window.dataLayer = window.dataLayer || [];
-      window.gtag = function gtag() { window.dataLayer.push(arguments); };
-      window.gtag('js', new Date());
-      window.gtag('config', 'G-TKXSRRX2X8');
-      const tag = document.createElement('script');
-      tag.async = true;
-      tag.src = 'https://www.googletagmanager.com/gtag/js?id=G-TKXSRRX2X8';
-      document.head.appendChild(tag);
-    }
-  </script>
+
 </head>
 <body>
   <header class="site-header">
@@ -77,7 +66,7 @@
       <nav class="start-help" aria-label="Справка и поддержка"><a href="/help/">Вопросы и ответы</a><a href="/guide.html">Инструкция</a><a href="/support/">Поддержать проект</a></nav>
     </section>
   </main>
-  <footer><div><strong>KEDEN44</strong><span>Минимально достаточный инструмент для ежедневной работы.</span></div><div class="footer-links"><a href="/privacy.html">Конфиденциальность</a><a href="/terms.html">Условия</a><a href="https://github.com/zhanat-arch/keden44-site" target="_blank" rel="noreferrer">GitHub</a></div></footer>
+  <footer data-site-footer><a href="/">KEDEN44</a> · <a href="/privacy.html">Конфиденциальность</a> · <a href="/help/">Справка</a></footer>
   <script src="/site.js"></script>
-</body>
+<script defer src="/shared/footer.js"></script></body>
 </html>
