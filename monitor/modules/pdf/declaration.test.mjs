@@ -1,6 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPage } from './declaration.js';
+import { parseDeclarationNumber, parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPage } from './declaration.js';
+
+test('finds a labelled number regardless of layout and PDF digit spacing', () => {
+  assert.equal(parseDeclarationNumber('Вес 100\n№ ДТ: 55411/221026/0027705\nСтатус'), '55411/221026/0027705');
+  assert.equal(parseDeclarationNumber('№ Д Т:\n5 5 4 11 /2 2 1 02 6/002 7 7 06'), '55411/221026/0027706');
+  assert.equal(parseDeclarationNumber('Номер ДТ: 55411.221026.0027705'), '55411/221026/0027705');
+  assert.equal(parseDeclarationNumber('№ ДТ: 55411/221026/0027705/2'), '55411/221026/0027705/2');
+  assert.equal(parseDeclarationSummary('№ ДТ: 55411/221026/0027705').dtNumber, '55411/221026/0027705');
+});
+
+test('does not guess an unrelated, ambiguous or invalid number', () => {
+  assert.equal(parseDeclarationNumber('44 Предыдущий документ 55411/221026/0027705'), '');
+  assert.equal(parseDeclarationNumber('55411/321326/0027705', true), '');
+  assert.equal(parseDeclarationNumber('55411/221026/0027705 55411/221026/0027706', true), '');
+  assert.equal(parseDeclarationNumber('55411/221026/00277050', true), '');
+});
+
+test('reads a split number from the header and ignores references below it', () => {
+  const item = (str, x, top) => ({ str, transform: [1, 0, 0, 1, x, 842 - top] });
+  assert.equal(parseStandardDtPage([
+    item('5 5 4 11 /221 026/0027 7 05', 400, 26),
+    item('55411/211026/0027706', 100, 500)
+  ]).dtNumber, '55411/221026/0027705');
+});
 
 test('reads sender, receiver and goods from the first DT page text', () => {
   const fields = parseDeclarationSummary(`

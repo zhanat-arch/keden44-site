@@ -36,12 +36,12 @@ export function needsAttention(record = {}) {
 }
 
 export function dtFromFileName(name = '') {
-  const m = name.match(/(\d{5})[_-](\d{6})[_-](\d{7})(?:[_-](\d+))?/);
+  const m = String(name).match(/(?<!\d)(\d{5})[\/._-](\d{6})[\/._-](\d{7})(?!\d)(?:[\/_-](\d+)(?!\d))?/);
   return m ? [m[1], m[2], m[3], m[4]].filter(Boolean).join('/') : '';
 }
 
 export function declarationNumberParts(value = '') {
-  const normalized = String(value).trim().replace(/[_-]/g, '/');
+  const normalized = String(value).trim().replace(/[._-]/g, '/');
   const match = normalized.match(/^(\d{5})\/(\d{6})\/(\d{7})(?:\/(\d+))?/);
   if (!match) return { fullNumber: normalized, baseNumber: normalized, correctionIndex: '', isCorrection: false };
   const baseNumber = [match[1], match[2], match[3]].join('/');

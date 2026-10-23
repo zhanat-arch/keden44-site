@@ -1,14 +1,15 @@
-import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js';
+import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js?v=2';
 import { latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { normalizeRegime } from './modules/core/regime.js';
+import { isRecordDeleted, mergeRecordDeletions } from './modules/core/deletions.js';
 import { refreshedFields } from './modules/core/refresh.js';
 import { normalizeExtensionGoods } from './modules/core/goods.js';
 import { createBoardView } from './modules/core/board-view.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
 import { requestKedenCheck } from './modules/keden/client.js';
-import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPage } from './modules/pdf/declaration.js';
+import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPage } from './modules/pdf/declaration.js?v=2';
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
@@ -95,6 +96,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
     let records = normalizeStoredRecords(loadRecords());
     let knownRecordNumbers = new Set(records.map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
     let settings = loadSettings();
+    records = records.filter(record => !isRecordDeleted(record, settings.deletedRecords));
     let query = '';
     let declarantBinFilter = '';
     let releasePeriod = 'all';
@@ -241,13 +243,26 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
         return defaults;
       }
     }
-    function persistentRecords() { return records.filter(record => !record.transientDuplicate); }
+    function persistentRecords() { return records.filter(record => !record.transientDuplicate && !isRecordDeleted(record, settings.deletedRecords)); }
+    function applyRecordDeletions(incoming = []) {
+      let stored = {};
+      try { stored = JSON.parse(store?.getItem(SETTINGS_KEY) || '{}'); } catch {}
+      settings.deletedRecords = mergeRecordDeletions(settings.deletedRecords, stored.deletedRecords, incoming);
+      records = records.filter(record => !isRecordDeleted(record, settings.deletedRecords));
+      if (JSON.stringify(stored.deletedRecords || []) !== JSON.stringify(settings.deletedRecords)) {
+        store?.setItem(SETTINGS_KEY, JSON.stringify({ ...stored, deletedRecords: settings.deletedRecords }));
+      }
+    }
     window.addEventListener('storage', event => {
+      if (event.key === SETTINGS_KEY) {
+        try { applyRecordDeletions(JSON.parse(event.newValue || '{}').deletedRecords); render(); } catch {}
+        return;
+      }
       if (event.key !== KEY || !event.newValue) return;
       try {
         const incoming = JSON.parse(event.newValue);
         if (!Array.isArray(incoming)) return;
-        records = normalizeStoredRecords(incoming.map(item => normalizeExtensionGoods(item, records.find(previous => previous.id === item.id))));
+        records = normalizeStoredRecords(incoming.filter(item => !isRecordDeleted(item, settings.deletedRecords)).map(item => normalizeExtensionGoods(item, records.find(previous => previous.id === item.id))));
         render();
       } catch (error) {
         console.error('Failed to synchronize monitor tabs', error);
@@ -256,6 +271,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
     function saveRecords() {
       try {
         if (store) {
+          applyRecordDeletions();
           const currentNumbers = new Set(persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
           const external = loadRecords().filter(record => {
             const number = declarationNumberParts(record.dtNumber).baseNumber || record.id;
@@ -974,6 +990,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
         .join('\n');
       const standardFields = parseStandardDtPage(content.items, page.view[2] - page.view[0], page.view[3] - page.view[1]);
       const textFields = parseDeclarationSummary(text);
+      const dtNumber = standardFields.dtNumber || (!standardFields.regime ? textFields.dtNumber : '') || '';
       let references = parseDeclarationReferences(contentText(content));
       for (let pageNumber = pdf.numPages; pageNumber > 1 && !references.containers.length; pageNumber -= 1) {
         const extraPage = await pdf.getPage(pageNumber);
@@ -984,7 +1001,8 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
           containers: [...new Set([...references.containers, ...found.containers])]
         };
       }
-      return Object.fromEntries(Object.entries({ ...textFields, ...standardFields, ...references }).filter(([, value]) => Array.isArray(value) ? value.length : value));
+      await pdf.destroy();
+      return Object.fromEntries(Object.entries({ ...textFields, ...standardFields, ...references, dtNumber }).filter(([, value]) => Array.isArray(value) ? value.length : value));
     }
 
     async function openFirstPage(record) {
@@ -1288,10 +1306,27 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       }
       if (changed) saveRecords();
     }
-    function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; record.changeAcknowledgedAt = new Date().toISOString(); record.kedenReadNotificationIds = [...new Set([...(record.kedenReadNotificationIds || []), ...(record.kedenUnreadNotificationIds || [])])].slice(-2000); record.kedenUnreadNotificationIds = []; if (isCleared(record.status)) { record.archived = true; record.archiveUpdatedAt = new Date().toISOString(); } record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
+    function clearChanged(id) { const record = records.find(r => r.id === id); if (!record) return; record.changed = false; record.changeAcknowledgedAt = new Date().toISOString(); record.kedenReadNotificationIds = [...new Set([...(record.kedenReadNotificationIds || []), ...(record.kedenUnreadNotificationIds || [])])].slice(-2000); record.kedenUnreadNotificationIds = []; const refused = /отказ(?:ано)?\s+в\s+выпуск/iu.test(record.status || ''); if (isCleared(record.status) || refused) { record.archived = true; record.archiveUpdatedAt = new Date().toISOString(); } record.updatedAt = new Date().toISOString(); record.history = [...(record.history || []), now() + (refused ? ': отказ принят, ДТ перенесена в архив' : isCleared(record.status) ? ': очистка принята, ДТ перенесена в архив' : ': изменение принято')]; saveRecords(); render(); }
     function setRequestWorkflow(id, value) { const record = records.find(r => r.id === id); if (!record) return; record.requestWorkflow = value; record.requestWorkflowAt = new Date().toISOString(); record.updatedAt = record.requestWorkflowAt; record.history = [...(record.history || []), now() + (value === 'done' ? ': ответ на запрос отправлен' : ': начат сбор документов по запросу')]; saveRecords(); render(); }
     function toggleArchive(id) { const record = records.find(r => r.id === id); if (!record) return; record.archived = !record.archived; record.archiveUpdatedAt = new Date().toISOString(); record.updatedAt = new Date().toISOString(); saveRecords(); render(); }
-    async function deleteRecord(id) { const record = records.find(r => r.id === id); if (!record) return; if (!window.confirm('Удалить запись "' + (record.name || record.dtNumber || 'без имени') + '"?')) return; records = records.filter(r => r.id !== id); await Promise.all([deleteFirstPagePreview(id).catch(() => {}), deleteSupportDocument(id).catch(() => {})]); saveRecords(); render(); }
+    async function deleteRecord(id) {
+      const record = records.find(item => item.id === id);
+      if (!record || !window.confirm('Удалить запись "' + (record.name || record.dtNumber || 'без имени') + '"?')) return;
+      try {
+        applyRecordDeletions([{ id, dtNumber: record.dtNumber || '', deletedAt: new Date().toISOString() }]);
+        if (!saveRecords()) return;
+        render();
+        els.line.textContent = 'Запись удалена';
+      } catch (error) {
+        els.line.textContent = 'Не удалось сохранить удаление: ' + error.message;
+        return;
+      }
+      if (googleConnected && googleCloudLoaded) {
+        try { await pushCloud(); }
+        catch (error) { showSyncState('error', 'Удаление сохранено на устройстве. Синхронизация повторится: ' + error.message); scheduleCloudSync(); }
+      }
+      await Promise.all([deleteFirstPagePreview(id).catch(() => {}), deleteSupportDocument(id).catch(() => {})]);
+    }
     function applySettings() {
       els.workInterval.value = settings.workMinutes;
       els.releasedInterval.value = settings.releasedHours;
@@ -1404,6 +1439,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       const keyOf = record => declarationNumberParts(record?.dtNumber || '').baseNumber || record?.id;
       for (const record of [...persistentRecords(), ...remoteRecords]) {
         if (!record || typeof record !== 'object') continue;
+        if (isRecordDeleted(record, settings.deletedRecords)) continue;
         const key = keyOf(record);
         if (!key) continue;
         const current = merged.get(key);
@@ -1418,9 +1454,10 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
     async function pullCloudAndMerge() {
       const result = await telegram.cloudPull();
       const cloud = result.cloud || {};
+      applyRecordDeletions(cloud.settings?.deletedRecords);
       mergeCloudRecords(Array.isArray(cloud.records) ? cloud.records : []);
       if (cloud.settings && typeof cloud.settings === 'object' && Object.keys(cloud.settings).length) {
-        settings = { ...settings, ...cloud.settings };
+        settings = { ...settings, ...cloud.settings, deletedRecords: mergeRecordDeletions(settings.deletedRecords, cloud.settings.deletedRecords) };
         if (!cloud.settings.telegramFieldsPresetVersion) {
           Object.assign(settings, { telegramShowDeclarant: true, telegramShowTransport: true, telegramFieldsPresetVersion: 1 });
         }
@@ -1445,7 +1482,13 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
     }
     async function pushCloud() {
       if (!googleConnected || !googleCloudLoaded) return;
-      await telegram.cloudPush(persistentRecords(), settings);
+      const result = await telegram.cloudPush(persistentRecords(), settings);
+      const previous = JSON.stringify(persistentRecords());
+      applyRecordDeletions(result.deletedRecords);
+      if (previous !== JSON.stringify(persistentRecords())) {
+        store?.setItem(KEY, JSON.stringify(persistentRecords()));
+        render();
+      }
     }
     let cloudReadRefreshRunning = false;
     async function refreshCloudReads() {
@@ -1454,6 +1497,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       try {
         const result = await telegram.cloudPull();
         const previous = JSON.stringify(persistentRecords());
+        applyRecordDeletions(result.cloud?.settings?.deletedRecords);
         mergeCloudRecords(loadRecords());
         mergeCloudRecords(result.cloud?.records || []);
         if (JSON.stringify(persistentRecords()) === previous) return;
@@ -1809,19 +1853,27 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
     if (transferMessage) els.line.textContent = transferMessage;
     void (async () => {
       for (const candidate of [...records]) {
-        if (normalizeRegime(candidate.regime) || !candidate.hasFirstPagePreview) continue;
+        if (normalizeRegime(candidate.regime) && candidate.dtNumber) continue;
         try {
-          const blob = await getFirstPagePreview(candidate.id);
-          if (!blob) continue;
-          const fields = await readDeclarationFields(blob);
+          const blob = candidate.hasFirstPagePreview ? await getFirstPagePreview(candidate.id) : null;
+          const fields = blob ? await readDeclarationFields(blob) : {};
           const record = records.find(item => item.id === candidate.id);
+          let changed = false;
           if (record && !normalizeRegime(record.regime) && normalizeRegime(fields.regime)) {
             record.regime = normalizeRegime(fields.regime);
+            changed = true;
+          }
+          const detectedNumber = fields.dtNumber || dtFromFileName(candidate.sourceFileName || '');
+          if (record && !record.dtNumber && detectedNumber) {
+            record.dtNumber = declarationNumberParts(detectedNumber).baseNumber;
+            changed = true;
+          }
+          if (record && changed) {
             record.updatedAt = new Date().toISOString();
             saveRecords();
             render();
           }
-        } catch (error) { console.warn('PDF regime unavailable', error.message); }
+        } catch (error) { console.warn('PDF fields unavailable', error.message); }
       }
     })();
     importSharedPdfsFromUrl();

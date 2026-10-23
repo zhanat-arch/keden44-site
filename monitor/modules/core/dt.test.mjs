@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, dtFromFileName, isCleared, isConditionalRelease, isRecentRelease, isReleased, isSecuredRelease, needsAttention, statusKind, submissionDateFromDtNumber } from './dt.js';
 
 test('reads a DT number from PDF filename', () => {
+  assert.equal(dtFromFileName('ВЫПУСК ДТ№55411.221026.0027705 CIXI.pdf'), '55411/221026/0027705');
+  assert.equal(dtFromFileName('55411.221026.0027706.pdf'), '55411/221026/0027706');
+  assert.equal(dtFromFileName('155411.221026.0027706.pdf'), '');
+  assert.equal(dtFromFileName('55411.221026.00277060.pdf'), '');
   assert.equal(dtFromFileName('55302_230626_0035613.pdf'), '55302/230626/0035613');
   assert.equal(dtFromFileName('55302_250626_0036977_2.pdf'), '55302/250626/0036977/2');
 });

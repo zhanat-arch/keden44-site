@@ -1,5 +1,26 @@
 import { pdfRegime } from '../core/regime.js';
 
+export function parseDeclarationNumber(text = '', allowUnlabelled = false) {
+  const normalized = String(text).replace(/\u00a0/g, ' ');
+  const pattern = /(?<!\d)(\d(?:\s*\d){4})\s*[\/._-]\s*(\d(?:\s*\d){5})\s*[\/._-]\s*(\d(?:\s*\d){6})(?!\d)(?:\s*\/\s*(\d+)(?!\d))?/g;
+  const labels = /(?:№\s*Д\s*Т|номер\s*Д\s*Т|рег\s*\.?\s*номер\s*(?:Д\s*Т)?|регистрационный\s+номер\s*(?:Д\s*Т)?)\s*[:№.-]?\s*/gi;
+  const sources = [...normalized.matchAll(labels)].map(match => normalized.slice(match.index + match[0].length, match.index + match[0].length + 90));
+  if (allowUnlabelled) sources.push(normalized);
+  for (const source of sources) {
+    const numbers = [...source.matchAll(pattern)].map(match => match.slice(1, 5).filter(Boolean).map(part => part.replace(/\s/g, '')).join('/'));
+    const valid = [...new Set(numbers)].filter(number => {
+      const date = number.split('/')[1];
+      const day = Number(date.slice(0, 2));
+      const month = Number(date.slice(2, 4));
+      const year = 2000 + Number(date.slice(4));
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+      return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+    });
+    if (valid.length === 1) return valid[0];
+  }
+  return '';
+}
+
 function clean(value = '') {
   return String(value)
     .replace(/\s+/g, ' ')
@@ -30,7 +51,9 @@ function between(text, start, end) {
 export function parseDeclarationSummary(text = '') {
   const normalized = String(text).replace(/\u00a0/g, ' ').replace(/\r/g, '\n');
   const receiver = between(normalized, /8\.?\s*Получатель/i, /9\.?\s*Лицо/i);
+  const dtNumber = parseDeclarationNumber(normalized);
   return {
+    ...(dtNumber ? { dtNumber } : {}),
     sender: between(normalized, /2\.?\s*Отправитель(?:\s*\/\s*экспортер)?/i, /3\.?\s*Формы?/i),
     receiver: receiver.replace(/^№?\s*\d{12}\s*/i, ''),
     receiverBin: receiver.match(/\b\d{12}\b/)?.[0] || '',
@@ -80,7 +103,10 @@ export function parseStandardDtPage(items = [], pageWidth = 596, pageHeight = 84
   const receiverText = receiverLines.join(' ');
   const cleanDeclarant = withoutLabel(declarantLines, /Декларант/i);
   const cleanTransport = withoutLabel(transportLines, /^прибытии$/i);
+  const header = regionText(items, pageWidth, pageHeight, { left: 0, right: 1, top: 0, bottom: 0.14 }).join('\n');
+  const dtNumber = parseDeclarationNumber(header, true);
   return {
+    ...(dtNumber ? { dtNumber } : {}),
     regime: pdfRegime(items, pageWidth, pageHeight),
     sender: senderLines.join(' ').replace(/^№\s*/i, ''),
     receiver: receiverText.replace(/^№?\s*\d{12}\s*/i, ''),
