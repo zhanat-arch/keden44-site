@@ -1865,8 +1865,12 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
           }
           const detectedNumber = fields.dtNumber || dtFromFileName(candidate.sourceFileName || '');
           if (record && !record.dtNumber && detectedNumber) {
-            record.dtNumber = declarationNumberParts(detectedNumber).baseNumber;
-            changed = true;
+            const baseNumber = declarationNumberParts(detectedNumber).baseNumber;
+            const existingMain = records.some(item => item.id !== record.id && declarationNumberParts(item.dtNumber).baseNumber === baseNumber);
+            if (!existingMain) {
+              record.dtNumber = baseNumber;
+              changed = true;
+            }
           }
           if (record && changed) {
             record.updatedAt = new Date().toISOString();
