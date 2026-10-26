@@ -168,7 +168,7 @@ detailsForm.addEventListener('submit', async event => {
     const result = await request('/payment/identify', {
       claimId: localStorage.getItem(CLAIM_KEY),
       paidAt: new Date(String(data.get('paidAt'))).toISOString(),
-      cardLast4: String(data.get('cardLast4') || '')
+      payerName: String(data.get('payerName') || '')
     });
     showClaim(result.claim);
   } catch (error) {

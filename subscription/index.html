@@ -39,14 +39,14 @@
         <button id="showPaymentDetails" class="button secondary" type="button" hidden>Указать данные платежа</button>
         <form id="paymentDetails" class="payment-details" hidden>
           <label>Точное время оплаты<input name="paidAt" type="datetime-local" required></label>
-          <label>Последние 4 цифры карты<input name="cardLast4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required></label>
-          <p>Полный номер карты, срок действия, CVV и банковскую выписку не отправляйте.</p>
+          <label>Имя подписчика Boosty<input name="payerName" maxlength="160" placeholder="Как указано в Boosty" required></label>
+          <p>Укажите имя из профиля Boosty, которым оплатили подписку. Данные карты не нужны.</p>
           <button class="button primary" type="submit">Активировать с проверкой</button>
         </form>
       </div>
     </section>
   </main>
   <footer data-site-footer><a href="/">KEDEN44</a> · <a href="/privacy.html">Конфиденциальность</a> · <a href="/help/">Справка</a></footer>
-  <script type="module" src="/subscription.js?v=20261021-account"></script>
+  <script type="module" src="/subscription.js?v=20261026-payer-name"></script>
 <script defer src="/shared/footer.js"></script></body>
 </html>
