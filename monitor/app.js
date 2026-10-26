@@ -5,6 +5,7 @@ import { normalizeRegime } from './modules/core/regime.js';
 import { isRecordDeleted, mergeRecordDeletions } from './modules/core/deletions.js';
 import { refreshedFields } from './modules/core/refresh.js';
 import { normalizeExtensionGoods } from './modules/core/goods.js';
+import { normalizeMonitorTransfer } from './modules/core/transfer.mjs';
 import { createBoardView } from './modules/core/board-view.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -181,7 +182,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       const corrections = [];
 
       for (const rawItem of items) {
-        const item = normalizeExtensionGoods(rawItem);
+        const item = normalizeMonitorTransfer(normalizeExtensionGoods(rawItem));
         if (typeof item.onInspection !== 'boolean') {
           item.onInspection = (item.history || [])
             .filter(line => /уведомление KEDEN:/i.test(line))
@@ -1447,7 +1448,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
         const time = value => Date.parse(value || '') || 0;
         const winner = !current || time(record.updatedAt) > time(current.updatedAt)
           || (time(record.updatedAt) === time(current.updatedAt) && time(record.checkedAt) > time(current.checkedAt)) ? record : current;
-        merged.set(key, { ...winner, ...readState });
+        merged.set(key, normalizeMonitorTransfer({ ...winner, ...readState }, winner === record ? current : record));
       }
       records = normalizeStoredRecords([...merged.values()]);
     }
