@@ -21,7 +21,16 @@
     </section>
     <section class="price-band" aria-labelledby="price-title">
       <div><p class="eyebrow">Акционная цена</p><h2 id="price-title"><strong>1 250 ₸</strong><span>≈ 2,77 $ в месяц</span></h2></div>
-      <div class="price-copy"><p>До 31 октября 2026 года все готовые функции доступны бесплатно. С 1 ноября по 31 декабря 2026 года подписка стоит 1 250 ₸ в месяц (примерно 2,77 $). С 1 января 2027 года — 2 500 ₸ в месяц (примерно 5,55 $).</p><p class="fine-print">Boosty может провести списание в долларах США, даже если цена отображается в другой валюте. Итоговая сумма в тенге зависит от курса и условий банка.</p><p>Для подписки и синхронизации войдите через Google или Telegram. Используйте один аккаунт в расширении и Мониторе на всех устройствах.</p><p id="subscriptionAccount" role="status">Проверяем аккаунт...</p><a id="subscriptionLogin" class="button secondary" href="/monitor/" target="_blank" rel="noopener">Войти в Мониторе</a><a id="purchaseLink" class="button primary" href="https://boosty.to/zhanat-arch/purchase/4117186?ssource=DIRECT&amp;share=subscription_link" target="_blank" rel="noreferrer" hidden>Оформить через Boosty</a><p class="fine-print">Добровольный донат (пожертвование на развитие проекта) можно отправить <a href="/support/">без входа в аккаунт</a>. Донат сам по себе не оформляет подписку KEDEN44.</p></div>
+      <div class="price-copy">
+        <p>До 31 октября 2026 года все готовые функции доступны бесплатно. Доступ за ноябрь 2026 года оплачивается разовой покупкой поста на Boosty. Для декабря опубликуем отдельный пост.</p>
+        <p class="fine-print"><strong>Выбирайте разовую покупку поста, а не подписку Boosty.</strong> Покупка этого поста не включает автопродление и ежемесячные списания. Boosty пока используется как временный способ оплаты доступа.</p>
+        <p class="fine-print">Стоимость доступа — 1 250 ₸ в месяц до конца 2026 года (примерно 2,77 $); с 1 января 2027 года — 2 500 ₸ (примерно 5,55 $). Итоговую сумму и валюту проверьте в Boosty перед подтверждением: списание может быть в долларах США, а сумма в тенге зависит от курса и условий банка.</p>
+        <p>Для оплаты доступа и синхронизации войдите через Google или Telegram. Используйте один аккаунт в расширении и Мониторе на всех устройствах.</p>
+        <p id="subscriptionAccount" role="status">Проверяем аккаунт...</p>
+        <a id="subscriptionLogin" class="button secondary" href="/monitor/" target="_blank" rel="noopener">Войти в Мониторе</a>
+        <a id="purchaseLink" class="button primary" href="https://boosty.to/zhanat-arch/posts/66c13f5d-7d4f-4395-a77f-ecaa85749bdf" target="_blank" rel="noreferrer" hidden>Оплатить ноябрь — разовая покупка</a>
+        <p class="fine-print">Безвозмездная <a href="/support/">поддержка проекта</a> оформляется отдельно и не предоставляет платный доступ. Ранее оформленные подписки Boosty автоматически не отменяются: проверьте автопродление в разделе <a href="https://boosty.to/app/settings/subscriptions" target="_blank" rel="noreferrer">«Мои подписки»</a>.</p>
+      </div>
       <p>Новому аккаунту — 7 дней тестирования с первого подтверждённого входа. После общего теста до 31 октября 2026 года и после окончания оплаченной подписки — по 7 календарных дней на оплату. Сроки не складываются: действует более поздняя дата окончания. После личной недели теста дополнительная неделя не начисляется. Повторный вход и смена устройства не запускают тест заново.</p>
       <p>Рабочий и домашний ПК можно использовать по очереди: расширение одновременно работает на одном компьютере. Монитор доступен на трёх устройствах, например на основном ПК и двух телефонах.</p>
     </section>
@@ -39,8 +48,8 @@
         <button id="showPaymentDetails" class="button secondary" type="button" hidden>Указать данные платежа</button>
         <form id="paymentDetails" class="payment-details" hidden>
           <label>Точное время оплаты<input name="paidAt" type="datetime-local" required></label>
-          <label>Имя подписчика Boosty<input name="payerName" maxlength="160" placeholder="Как указано в Boosty" required></label>
-          <p>Укажите имя из профиля Boosty, которым оплатили подписку. Данные карты не нужны.</p>
+          <label>Имя покупателя в Boosty<input name="payerName" maxlength="160" placeholder="Как указано в Boosty" required></label>
+          <p>Укажите имя из профиля Boosty, которым купили пост. Данные карты не нужны. Если покупка не найдётся автоматически, обратитесь в поддержку и сохраните подтверждение Boosty.</p>
           <button class="button primary" type="submit">Активировать с проверкой</button>
         </form>
       </div>
