@@ -16,7 +16,7 @@ export function normalizeMonitorTransfer(record, previous) {
   const text = Number(next.transferVersion) === 2 && typeof next.firstPage?.text === 'string' ? next.firstPage.text : '';
   if (text.length > MAX_TEXT) throw new Error('Первый лист превышает лимит передачи; исходный текст не обрезан.');
   const raw = record.rawFields || {};
-  const graph1 = section(text, '(?:^|\\n)\\s*1\\s*Декларация', '(?:^|\\n)\\s*(?:3\\s*Форм|5\\s*Всего)');
+  const graph1 = section(text, '(?:^|\\s)1\\s*Декларация', '(?:^|\\s)(?:3\\s*Форм|5\\s*Всего)');
   const regimeText = [record.regime, raw.regime, graph1, previous?.regime].filter(Boolean);
   for (const value of regimeText) {
     const matches = [...String(value).toUpperCase().matchAll(/(?:^|[^А-ЯЁA-Z0-9])(ИМ|ЭК|ТР)\s*(\d{2})(?!\d)/gu)];

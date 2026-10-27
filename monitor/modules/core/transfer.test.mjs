@@ -45,3 +45,9 @@ test('reads regime from graph 1 without a PDF, preserves known regime and never 
   assert.equal(normalizeMonitorTransfer({goods:'ЭК 10'}).regime,undefined);
   assert.equal(normalizeMonitorTransfer({goods:'товар'}, {regime:'ИМ 40'}).regime,'ИМ 40');
 });
+
+test('graph 1 can be mid-row in captured HTML table text', () => {
+  const firstPage = {text:'2 Отправитель\t1 Декларация\nИМ\t40\tЭД\t3 Формы\n1\n31 Грузовые места\nЭК 10'};
+  assert.equal(normalizeMonitorTransfer({transferVersion:2,firstPage}).regime,'ИМ 40');
+  assert.equal(normalizeMonitorTransfer({transferVersion:2,firstPage:{text:'31 Грузовые места\nИМ 40'}}).regime,undefined);
+});
