@@ -9,7 +9,7 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
    if(index===1){
     metadata.dtNumber=text.match(/\d{5}\/\d{6}\/\d{7}/)?.[0]||'';metadata.regime=text.match(/(?:^|\s)((?:ИМ|ЭК)\s+\d{2})(?=\s|$)/m)?.[1]||'';
     const registrationDate=metadata.dtNumber.match(/^\d{5}\/(\d{2})(\d{2})(\d{2})\//);if(registrationDate)metadata.documentDate=`20${registrationDate[3]}-${registrationDate[2]}-${registrationDate[1]}`;
-    const originLabel=label(words,16,0,300);if(originLabel)metadata.originName=crop(words,321,originLabel.top+10,441,originLabel.top+27).replace(/\s+/g,' ').trim();
+    const originLabel=label(words,16,0,300);if(originLabel)metadata.originName=crop(words,321,originLabel.top+10,441,originLabel.top+27).split('\n')[0].trim();
     for(const [field,n,left,right] of [['currency',22,321,442],['exchangeRate',23,445,493],['totalCustoms',12,408,580],['packages',6,364,405],['expectedItems',5,321,364],['borderTransport',21,70,318],['transportMode',25,70,150],['delivery',20,321,580],['departure',15,321,441],['departureCode',15,441,505],['destination',17,442,580],['tradeCountry',11,408,475]]){
      if(field==='tradeCountry')continue;
      const a=field==='destination'?words.find(w=>w.text==='17'&&words.some(v=>v.text==='назначения'&&Math.abs(v.top-w.top)<2&&v.x0>w.x0&&v.x0<w.x0+110)):label(words,n,0,300);
