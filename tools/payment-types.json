@@ -46,6 +46,6 @@
     "7020":{"name":"Административные штрафы РК","family":"penalty","review":true},
     "4441":{"name":"Пеня по акцизу на легковые автомобили","family":"penalty","review":true}
   },
-  "currencies":{"CNY":"156","EUR":"978"},
+  "currencies":{"CNY":"156","EUR":"978","USD":"840"},
   "currencySource":"https://alm.kgd.gov.kz/ru/nsi/valname/10/5"
 }

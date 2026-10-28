@@ -1,11 +1,15 @@
 import {openPdf,wordsOf,pageText,crop,label,firstNumber,paymentGroups,dec,money,sum,SP} from './pdf-core.js';
+import {fullGoodsName,readInvoiceRows,invoiceReferences,itemProcedure} from './accounting-fields.js';
 export async function parseDeclaration(file,catalog,progress=()=>{}){
- const pdf=await openPdf(file),byId=new Map(),appendix=new Map(),metadata={},warnings=[],declaredTotals={};
+ const pdf=await openPdf(file),byId=new Map(),appendix=new Map(),invoices=new Map(),metadata={},warnings=[],declaredTotals={};
  try{
   for(let index=1;index<=pdf.numPages;index++){
    progress(index,pdf.numPages);const page=await pdf.getPage(index),words=await wordsOf(page),text=pageText(words);
+   for(const invoice of readInvoiceRows(words)){const list=invoices.get(invoice.item)||[];if(!list.some(i=>i.code===invoice.code&&i.number===invoice.number&&i.date===invoice.date))list.push(invoice);invoices.set(invoice.item,list);}
    if(index===1){
     metadata.dtNumber=text.match(/\d{5}\/\d{6}\/\d{7}/)?.[0]||'';metadata.regime=text.match(/(?:^|\s)((?:ИМ|ЭК)\s+\d{2})(?=\s|$)/m)?.[1]||'';
+    const registrationDate=metadata.dtNumber.match(/^\d{5}\/(\d{2})(\d{2})(\d{2})\//);if(registrationDate)metadata.documentDate=`20${registrationDate[3]}-${registrationDate[2]}-${registrationDate[1]}`;
+    const originLabel=label(words,16,0,300);if(originLabel)metadata.originName=crop(words,321,originLabel.top+10,441,originLabel.top+27).replace(/\s+/g,' ').trim();
     for(const [field,n,left,right] of [['currency',22,321,442],['exchangeRate',23,445,493],['totalCustoms',12,408,580],['packages',6,364,405],['expectedItems',5,321,364],['borderTransport',21,70,318],['transportMode',25,70,150],['delivery',20,321,580],['departure',15,321,441],['departureCode',15,441,505],['destination',17,442,580],['tradeCountry',11,408,475]]){
      if(field==='tradeCountry')continue;
      const a=field==='destination'?words.find(w=>w.text==='17'&&words.some(v=>v.text==='назначения'&&Math.abs(v.top-w.top)<2&&v.x0>w.x0&&v.x0<w.x0+110)):label(words,n,0,300);
@@ -21,8 +25,10 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
     const starts=words.filter(w=>w.text==='32'&&w.x0>300&&w.x0<340&&words.some(v=>v.text==='Товар'&&Math.abs(v.top-w.top)<3&&v.x0-w.x0>0&&v.x0-w.x0<28)).sort((a,b)=>a.top-b.top),items=[];
     for(let pos=0;pos<starts.length;pos++){
      const top=starts[pos].top,end=starts[pos+1]?.top||900,num=firstNumber(crop(words,310,top+10,341,top+28));if(!num||num.includes('.'))continue;
-     const item={number:Number(num),page:index,payments:[]};item.tnved=crop(words,343,top+10,480,top+39).match(/\b\d{10}\b/)?.[0]||'';
-     const a34=label(words,34,top,end,340);item.name=crop(words,67,top+20,310,a34?.top||top+50).replace(/\s+/g,' ').replace(/^1\.\s*/,'');
+     const item={number:Number(num),page:index,payments:[]};item.tnved=crop(words,343,top+10,480,top+39).match(/\b\d{10}\b/)?.[0]||'';item.procedure=itemProcedure(words,top,end);
+     const a34=label(words,34,top,end,340),a44=words.find(w=>w.text==='44'&&w.x0<65&&w.top>top&&w.top<end);
+     const description=crop(words,67,top+20,310,a44?.top||a34?.top||top+50).split(/(?:\n|\s)2\.\s/)[0];
+     item.name=fullGoodsName('ГРУППА ТОВАРОВ 1: '+description)||description.replace(/\s+/g,' ').replace(/^1\.\s*/,'');
      for(const [field,n,left,right] of [['gross',35,418,495],['net',38,418,495],['invoiceValue',42,418,495],['customsValue',45,450,580],['statValue',46,450,580],['extraQuantity',41,343,418],['mos',43,495,580]]){
       const a=label(words,n,top,end,340);if(!a)continue;const raw=crop(words,left,a.top+10,right,a.top+(n===45?31:24));
       if(n===41){const parts=raw.split(/\s+/);item.extraUnit=/^\d+$/.test(parts[0])?parts[0]:'';item[field]=parts.length>1?dec(parts.at(-1))?.toString()??null:null;}else item[field]=firstNumber(raw);
@@ -39,8 +45,11 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
   }
  }finally{await pdf.destroy();}
  const items=[...byId.values()].sort((a,b)=>a.number-b.number);
- for(const item of items)if(!item.name){const extra=appendix.get(item.number)||'';item.name=extra.match(/ГРУППА ТОВАРОВ\s+1\s*:\s*([\s\S]*?)(?=ТОВАРНЫЙ ЗНАК|МАРКА|МОДЕЛЬ|АРТИКУЛ|КОЛИЧЕСТВО|ПРОИЗВОДИТЕЛЬ|$)/)?.[1]?.replace(/^1\.\s*/,'').replace(/\s+/g,' ').trim()||'';}
- for(const item of items){const extra=appendix.get(item.number)?.trim();if(extra){item.description=extra;for(const [field,tag]of[['article','АРТИКУЛ'],['manufacturer','ПРОИЗВОДИТЕЛЬ'],['brand','МАРКА'],['trademark','ТОВАРНЫЙ ЗНАК'],['model','МОДЕЛЬ'],['serial','СЕРИЙНЫЕ НОМЕРА']])item[field]=extra.match(new RegExp(tag+'\\s+([^;]+)'))?.[1]?.trim();const q=[...extra.matchAll(/КОЛИЧЕСТВО\s+([\d,.]+)\s*([^;]+)/g)];if(q.length===1){item.quantity=dec(q[0][1])?.toString()??null;item.unitName=q[0][2].trim();}else if(q.length>1)warnings.push(`Товар №${item.number}: несколько групп, количество требует проверки`);}
+ for(const item of items){const fullName=fullGoodsName(appendix.get(item.number));if(fullName)item.name=fullName;}
+ for(const item of items){const extra=appendix.get(item.number)?.replace(/\s+/g,' ').trim();if(extra){item.description=extra;for(const [field,tag]of[['article','АРТИКУЛ'],['manufacturer','ПРОИЗВОДИТЕЛЬ'],['brand','МАРКА'],['trademark','ТОВАРНЫЙ ЗНАК'],['model','МОДЕЛЬ'],['serial','СЕРИЙНЫЕ НОМЕРА']])item[field]=extra.match(new RegExp(tag+'\\s+([^;]+)'))?.[1]?.trim();const q=[...extra.matchAll(/КОЛИЧЕСТВО\s+([\d,.]+)\s*([^;]+)/g)];if(q.length===1){item.quantity=dec(q[0][1])?.toString()??null;item.unitName=q[0][2].trim();}else if(q.length>1)warnings.push(`Товар №${item.number}: несколько групп, количество требует проверки`);}
+  item.invoices=invoices.get(item.number)||[];item.invoice=item.invoices.map(i=>i.number).join('\n')||null;item.invoiceDate=item.invoices.map(i=>i.date||'').join('\n')||null;item.invoiceReferences=invoiceReferences(item.invoices)||null;
+  if(!item.extraUnit&&item.unitName==='ШТ')item.quantityUnit='796';
+  if(item.origin===metadata.departureCode&&metadata.originName===metadata.departure)item.originName=metadata.originName;
   for(const key of ['name','tnved','customsValue','invoiceValue','statValue','quantity'])if(item[key]==null||item[key]==='')warnings.push(`Товар №${item.number}: не извлечено поле ${key}`);
   for(const p of item.payments){Object.assign(p,catalog.codes[p.code]||{name:'Неизвестный вид платежа',family:'unknown',review:true});if(p.group==='unknown'||p.group==='review')warnings.push(`Товар №${item.number}: СП ${p.sp} требует проверки`);if(p.family==='unknown')warnings.push(`Товар №${item.number}: неизвестный вид платежа ${p.code}`);}
  }
