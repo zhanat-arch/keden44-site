@@ -1,0 +1,7 @@
+# Owner UI and deployment credentials must never be published by Pages.
+/private-owner/
+/owner-k44-7c91e4b6d2af58/
+.env
+.env.*
+*.pem
+*.key
