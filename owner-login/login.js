@@ -11,7 +11,9 @@
       const result=await fetch(endpoint,{method:'POST',credentials:'include',redirect:'error',headers:{'content-type':'application/json'},body:JSON.stringify({credential:response.credential}),signal:AbortSignal.timeout(15000)});
       const data=await result.json();
       if(!result.ok||!data.ok)throw Error(result.status===429?'Слишком много попыток. Попробуйте позже.':'Этот аккаунт не имеет доступа к панели владельца.');
-      location.replace('https://api.keden44.com/v1/telegram/owner/');
+      const next=new URL(data.next);
+      if(next.origin!=='https://api.keden44.com'||!/^\/v1\/telegram\/manage-[a-f0-9]{24}\/$/.test(next.pathname)||next.search||next.hash)throw Error('Некорректный ответ сервера. Обновите страницу.');
+      location.replace(next.href);
     }catch(error){status.textContent=error.name==='TimeoutError'?'Сервер не ответил вовремя. Попробуйте ещё раз.':error.message;busy=false;}
   }
   function initialize(){
