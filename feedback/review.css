@@ -1,0 +1,26 @@
+.review-layout{background:#fff;letter-spacing:0}
+.review-page{width:min(900px,calc(100% - 48px));margin:0 auto}
+.review-intro{padding:56px 0 40px}
+.review-page h1{max-width:720px;margin:0 0 20px;font-size:40px;line-height:1.15;letter-spacing:0}
+.review-page h2{margin:0 0 18px;font-size:27px;line-height:1.25}
+.review-page h3{margin:0 0 8px;font-size:19px;line-height:1.4}
+.review-page p{max-width:760px;color:#465268}
+.review-page .eyebrow{color:#087958;font-size:12px;letter-spacing:0}
+.review-intro .review-lead{margin:0 0 20px;font-size:21px;color:#253649;line-height:1.5}
+.review-actions{display:flex;flex-wrap:wrap;gap:12px;margin:26px 0 18px}
+.review-page .button{min-height:46px;height:auto;padding:12px 18px;line-height:1.35;text-align:center;overflow-wrap:anywhere}
+.review-page a:focus-visible{outline:3px solid #17845f;outline-offset:4px}
+.review-intro .review-fair{margin:0;font-size:14px;color:#657184}
+.review-details{padding:34px 0;border-top:1px solid #dbe2ea}
+.review-steps{padding:0;list-style:none;counter-reset:review-step}
+.review-steps li{position:relative;padding:20px 0 20px 54px;border-bottom:1px solid #e4e9ee;counter-increment:review-step}
+.review-steps li::before{content:"0" counter(review-step);position:absolute;left:0;top:21px;color:#087958;font-size:15px;font-weight:800}
+.review-steps p{margin:0}
+.review-note{padding:14px 0;font-size:14px}
+.review-support{padding:30px 0 34px;border-top:3px solid #d99920;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:start}
+.review-support .button{margin-top:35px}
+.review-support .eyebrow{color:#855400}
+.review-support p{margin:0 0 14px}
+.review-finish{padding:36px 0 52px;border-top:1px solid #dbe2ea}
+.review-finish .review-store-note{font-size:13px;margin-top:14px}
+@media(max-width:680px){.review-page{width:calc(100% - 32px)}.review-intro{padding:34px 0 28px}.review-page h1{font-size:30px}.review-page h2{font-size:23px}.review-intro .review-lead{font-size:18px}.review-actions{display:grid;grid-template-columns:minmax(0,1fr)}.review-steps li{padding-left:42px}.review-support{grid-template-columns:minmax(0,1fr);gap:8px}.review-support .button{margin-top:0;justify-self:start}.review-finish .button{width:100%}.review-page .review-fair{font-size:13px}.review-layout .site-header{padding-left:16px;padding-right:16px;gap:12px}}
