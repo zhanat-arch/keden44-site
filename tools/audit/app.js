@@ -67,10 +67,10 @@ $('auditForm').addEventListener('submit',async event=>{
   const req=await readRequirement(documents.requirement,progress);
   if(current!==generation)return;
   const frro=documents.frro?await readFrro(documents.frro,progress):null;
-  if(current===generation)show(checkAudit(req,frro,catalog));
+  if(current===generation){show(checkAudit(req,frro,catalog));recordReport('audit');}
  }catch(error){if(current===generation)$('status').textContent=error.message;}finally{$('run').disabled=false;$('progress').hidden=true;}
 });
 for(const tab of document.querySelectorAll('[data-view]'))tab.addEventListener('click',()=>{for(const t of document.querySelectorAll('[data-view]')){t.classList.toggle('selected',t===tab);t.setAttribute('aria-selected',String(t===tab));$(t.dataset.view).hidden=t!==tab;}});
 import {detect} from '../pdf-core.js';
 import {readRequirement,readFrro,checkAudit} from '../audit-engine.js';
-import {requireAccess} from '../access.js';
+import {requireAccess,recordReport} from '../access.js?v=access-20261030';

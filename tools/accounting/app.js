@@ -47,9 +47,9 @@ $('download').addEventListener('click',async()=>{
  if(!data)return;
  $('download').disabled=true;$('status').textContent='Формируем Excel…';
  try{await requireAccess();const[catalog,profiles]=await ready;const buffer=await makeReport(data,profiles.find(p=>p.id===$('profile').value),catalog);
-  const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=`Отчет_${(data.metadata.dtNumber||'ДТ').replaceAll('/','_')}_${$('profile').value}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);$('status').textContent='Excel сформирован';
+  const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=`Отчет_${(data.metadata.dtNumber||'ДТ').replaceAll('/','_')}_${$('profile').value}.xlsx`;a.click();recordReport($('profile').value);setTimeout(()=>URL.revokeObjectURL(url),30000);$('status').textContent='Excel сформирован';
  }catch(error){$('status').textContent=error.message;}finally{$('download').disabled=false;}
 });
 import {parseDeclaration} from '../accounting-engine.js';
 import {makeReport} from '../excel-report.js';
-import {requireAccess} from '../access.js';
+import {requireAccess,recordReport} from '../access.js?v=access-20261030';

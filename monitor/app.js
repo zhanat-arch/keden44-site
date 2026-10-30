@@ -152,6 +152,9 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       } else if (accessState.state === 'grace') {
         els.accessNoticeTitle.textContent = 'Ожидается оплата';
         els.accessNoticeText.textContent = `На оплату предоставляется 7 календарных дней. Монитор продолжит работу до ${accessDate(accessState.graceUntil)}.`;
+      } else if (accessState.state === 'promo') {
+        els.accessNoticeTitle.textContent = accessState.validUntil ? `Доступ по приглашению до ${accessDate(accessState.validUntil)}` : 'Доступ по приглашению';
+        els.accessNoticeText.textContent = 'Для этого устройства предоставлен доступ к Монитору ДТ.';
       } else if (accessState.state === 'blocked') {
         els.accessNoticeTitle.textContent = 'Подписка приостановлена';
         els.accessNoticeText.textContent = 'Оплатите подписку для продолжения серверной проверки и синхронизации.';
