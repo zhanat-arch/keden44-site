@@ -1,6 +1,6 @@
 import {dec,money,sum,SP} from './pdf-core.js';
 import {costOf} from './costing.js';
-import {declarationHeading} from './report-heading.js';
+import {declarationHeading,correctionNotice} from './report-heading.js';
 import {invoiceDate,displayInvoiceDate} from './accounting-fields.js';
 const maps={
  classic:['dtNumber','regime','transport','transportMode','sender','receiver',null,'declarant','financial','delivery','currency','exchangeRate',null,null,'number','tnved','name','departure','departureCode','destination','destinationCode','tradeCountry','origin','net','unit','extraQuantity','invoiceValue','customsValue','statValue','fee',null,'duty','exportDuty','excise','vat','vatRate','conditionalFee',null,'conditionalDuty','conditionalExportDuty','conditionalExcise','conditionalVat','conditionalVatRate'],
@@ -16,7 +16,8 @@ export async function makeReport(data,profile,catalog){
  const tax=(item,family,paid=true)=>money(sum(item.payments.filter(p=>kind(p).family===family&&(paid?['ИУ','ВУ'].includes(p.sp):!['ИУ','ВУ'].includes(p.sp))).map(p=>p.amount)));
  const rates=(item,family,paid=true)=>[...new Set(item.payments.filter(p=>kind(p).family===family&&(paid?['ИУ','ВУ'].includes(p.sp):!['ИУ','ВУ'].includes(p.sp))).map(p=>p.rate.replace(/\s+%/g,'%')))].join('; ')||null;
  const currencyKeys=new Set(['fee','duty','exportDuty','excise','vat','special','otherSpecial','antidumping','conditionalFee','conditionalDuty','conditionalExportDuty','conditionalExcise','conditionalVat','invoiceValue','customsValue','statValue','invoiceKzt','nonVat','cost','unitCost','costNoVat','unitPrice']);
- sheet.getCell('A1').value=declarationHeading(m.dtNumber);
+ sheet.getCell('A1').value=declarationHeading(m.dtNumber,m.correctionNumber);
+ sheet.getCell('A1').alignment={wrapText:true,vertical:'middle'};sheet.getRow(1).height=m.correctionNumber?48:24;
  const generator={text:'Отчёт создан в KEDEN44 · https://keden44.com/tools/accounting/',hyperlink:'https://keden44.com/tools/accounting/'};
  const creditRow=profile.id==='detailed'?7:1;
  const creditCell=sheet.getCell(creditRow,profile.id==='detailed'?1:7);creditCell.value=generator;creditCell.font={name:'Arial',size:10,color:{argb:'FF125FBA'},underline:true};
@@ -46,7 +47,7 @@ export async function makeReport(data,profile,catalog){
  raw.addRow(['Товар','Код платежа','База','Ставка','Сумма','СП','Группа','Страница PDF','Вид платежа','Наименование кода']);
  for(const p of payments)raw.addRow([p.item,p.code,p.base==null?null:Number(p.base),p.rate,Number(p.amount),p.sp,SP[p.sp]?.[0]||'Неизвестный СП',p.page,catalog.families[kind(p).family]||'Неизвестный вид',kind(p).name]);
  raw.getColumn(2).numFmt='@';for(const c of [3,5])raw.getColumn(c).numFmt='#,##0.00';raw.getColumn(4).numFmt='@';
- totals.getCell('A2').value='Итоги платежей по ДТ';totals.getCell('A2').font={name:'Arial',size:14,bold:true};totals.getCell('A3').value='ДТ '+(m.dtNumber||'не определена');totals.getCell('A4').value=data.complete?'Суммы по графе 47, KZT':'Предварительные итоги: проверьте полноту разбора';
+ totals.getCell('A2').value='Итоги платежей по ДТ';totals.getCell('A2').font={name:'Arial',size:14,bold:true};totals.getCell('A3').value='ДТ '+(m.dtNumber||'не определена')+(m.correctionNumber?` · По данным КДТ №${m.correctionNumber}`:'');totals.getCell('A4').value=data.complete?'Суммы по графе 47, KZT':'Предварительные итоги: проверьте полноту разбора';
  totals.getRow(5).values=['Категория','СП','Сумма, ₸'];
  const groups=[['Всего оплачено до выпуска','ИУ',['ИУ']],['Всего зачётом','ЗН',['ЗН']],['Всего отсрочено / рассрочено','ОП, ОЧ, РП',['ОП','ОЧ','РП']],['Всего оплачено после выпуска','ВУ',['ВУ']],['Условно начислено (справочно)','УН, УР',['УН','УР']],['Прочие способы — проверить','Прочие СП',null]];
  const known=new Set(['ИУ','ВУ','ЗН','УН','УР','ОП','ОЧ','РП']),end=Math.max(2,payments.length+1),er=`'Платежи 47'!$E$2:$E$${end}`,fr=`'Платежи 47'!$F$2:$F$${end}`,br=`'Платежи 47'!$B$2:$B$${end}`;
@@ -58,7 +59,9 @@ export async function makeReport(data,profile,catalog){
  if(!keys.length)totals.getCell('A21').value=payments.length?'Денежные платежи и зачёт отсутствуют; условные начисления — на листе «Платежи 47».':'Платежи не извлечены: итоги не определены';
  totals.columns=[{width:54},{width:22},{width:24},{width:46}];totals.getColumn(3).numFmt='#,##0.00';
  notes.addRows([['KEDEN44',generator],['Источник',data.filename],['Проверка извлечения',data.complete?'Замечаний к извлечению данных не найдено':'Есть замечания к извлечению данных'],['Товаров',data.items.length],['Замечания по этой ДТ',data.warnings.length?'См. строки ниже':'Нет'],...data.warnings.map(w=>['Проверить по PDF',w]),[],['Общая справка','Не является замечанием к этой ДТ. Наличие УН, ЗН и других способов платежа определяется только по строкам загруженной ДТ.'],['Способ платежа (СП)','СП не подтверждает фактическое списание денег или остаток задолженности.'],['Классификатор СП',data.source.sp],['Внутренний идентификатор','В выгрузке оставляется пустым.']]);notes.columns=[{width:28},{width:100}];
+ if(m.correctionNumber)notes.addRow(['По данным КДТ',correctionNotice(m.correctionNumber)]);
  for(const ws of [sheet,raw,notes,totals]){ws.views=[{showGridLines:false}];ws.eachRow(row=>{row.height=24;row.eachCell(cell=>{if(!cell.font?.size)cell.font={name:'Arial',size:10};cell.alignment={...cell.alignment,vertical:'middle'};});});}
+ if(m.correctionNumber)sheet.getRow(1).height=48;
  const costCount=data.items.filter(item=>costOf(item,catalog)).length;
  notes.addRows([[],['Расчёт по этой ДТ',`Рассчитано товаров: ${costCount} из ${data.items.length}. При неизвестных платежах или недостатке данных стоимость остаётся пустой.`],['База расчёта','Таможенная стоимость из графы 45 ДТ, в тенге. Курс повторно не применяется; транспорт из ДТС, включённый в графу 45, повторно не добавляется.'],['Стоимость без НДС','Графа 45 + платежи без НДС со СП ИУ, ВУ, ОП, ОЧ, РП и фактически уплаченной частью УМ.'],['Стоимость с НДС','Стоимость без НДС + НДС по тем же способам платежа. НДС также указан отдельно. Это расчётная сумма с НДС, а не подтверждение бухгалтерской себестоимости.'],['Исключения','УН, УР и ЗН не включаются. При РП оплаченная часть УМ того же платежа повторно не прибавляется. Отсрочка и рассрочка учитываются как обязательства, не как подтверждение оплаты.'],['Область применения','Упрощённая оценка по ДТ, в том числе при бесплатной поставке, а не оценка принятия к бухгалтерскому учёту. Не подтверждает оплату и не включает внешние расходы, отсутствующие в ДТ.'],['Цена по инвойсу','Фактурная стоимость в тенге и цена единицы по инвойсу пересчитаны по курсу графы 23 для справки. Для расчётной стоимости используется графа 45.'],['Макет отчёта','Нужен другой макет из данных ДТ? Пришлите пример в поддержку: https://t.me/keden44_monitor_bot?start=support']]);
  if(profile.id==='detailed')notes.addRow(['NTIN и GTIN','В используемом макете PDF ДТ поля NTIN и GTIN отсутствуют. Если эти коды нужны для складского учёта или загрузки в 1С, заполните соответствующие столбцы отчёта вручную.']);

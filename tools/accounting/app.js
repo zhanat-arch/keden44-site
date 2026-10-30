@@ -17,12 +17,12 @@ function rows(){
 }
 function show(result){
  data=result;$('empty').hidden=true;$('workspace').hidden=false;$('filename').textContent=data.filename||'PDF ДТ';
- $('dt').textContent=data.metadata.dtNumber||'Не определена';$('count').textContent=`${data.items.length} / ${data.metadata.expectedItems||'?'}`;
+ $('dt').textContent=(data.metadata.dtNumber||'Не определена')+(data.metadata.correctionNumber?` · КДТ №${data.metadata.correctionNumber}`:'');$('count').textContent=`${data.items.length} / ${data.metadata.expectedItems||'?'}`;
  $('customs').textContent=fmt(data.metadata.totalCustoms)+' ₸';$('health').textContent=data.complete?'Пройдена':'Нужна проверка';$('health').style.color=data.complete?'#167359':'#a44916';
  $('warningCount').textContent=data.warnings.length;$('paymentsBody').replaceChildren();
  const groups={paid:'ИУ / ВУ',offset:'Зачёт НДС',conditional:'Условное начисление',deferred:'Отсрочка / рассрочка',review:'Требует проверки',unknown:'Неизвестный код'};
  for(const p of data.paymentTotals){const tr=document.createElement('tr');[p.code,p.sp,groups[p.group]||p.group,fmt(p.amount)].forEach((v,i)=>cell(tr,v,i===3?'numeric':''));$('paymentsBody').append(tr);}
- $('warnings').replaceChildren();for(const text of data.warnings.length?data.warnings:['Полнота товаров и контрольные суммы проверены.']){const li=document.createElement('li');li.textContent=text;$('warnings').append(li);}
+ $('warnings').replaceChildren();for(const text of [...(data.notices||[]),...(data.warnings.length?data.warnings:['Полнота товаров и контрольные суммы проверены.'])]){const li=document.createElement('li');li.textContent=text;$('warnings').append(li);}
  $('status').textContent=data.complete?'Декларация разобрана':'Декларация разобрана. Проверьте замечания перед использованием отчёта.';
  rows();
 }

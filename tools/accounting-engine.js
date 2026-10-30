@@ -1,5 +1,6 @@
 import {openPdf,wordsOf,pageText,crop,label,firstNumber,paymentGroups,dec,money,sum,SP} from './pdf-core.js';
 import {fullGoodsName,readInvoiceRows,invoiceReferences,itemProcedure} from './accounting-fields.js';
+import {declarationReference,correctionNotice} from './report-heading.js';
 export async function parseDeclaration(file,catalog,progress=()=>{}){
  const pdf=await openPdf(file),byId=new Map(),appendix=new Map(),invoices=new Map(),metadata={},warnings=[],declaredTotals={};
  try{
@@ -7,7 +8,7 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
    progress(index,pdf.numPages);const page=await pdf.getPage(index),words=await wordsOf(page),text=pageText(words);
    for(const invoice of readInvoiceRows(words)){const list=invoices.get(invoice.item)||[];if(!list.some(i=>i.code===invoice.code&&i.number===invoice.number&&i.date===invoice.date))list.push(invoice);invoices.set(invoice.item,list);}
    if(index===1){
-    metadata.dtNumber=text.match(/\d{5}\/\d{6}\/\d{7}/)?.[0]||'';metadata.regime=text.match(/(?:^|\s)((?:ИМ|ЭК)\s+\d{2})(?=\s|$)/m)?.[1]||'';
+    Object.assign(metadata,declarationReference(text));metadata.regime=text.match(/(?:^|\s)((?:ИМ|ЭК)\s+\d{2})(?=\s|$)/m)?.[1]||'';
     const registrationDate=metadata.dtNumber.match(/^\d{5}\/(\d{2})(\d{2})(\d{2})\//);if(registrationDate)metadata.documentDate=`20${registrationDate[3]}-${registrationDate[2]}-${registrationDate[1]}`;
     const originLabel=label(words,16,0,300);if(originLabel)metadata.originName=crop(words,321,originLabel.top+10,441,originLabel.top+27).split('\n')[0].trim();
     for(const [field,n,left,right] of [['currency',22,321,442],['exchangeRate',23,445,493],['totalCustoms',12,408,580],['packages',6,364,405],['expectedItems',5,321,364],['borderTransport',21,70,318],['transportMode',25,70,150],['delivery',20,321,580],['departure',15,321,441],['departureCode',15,441,505],['destination',17,442,580],['tradeCountry',11,408,475]]){
@@ -59,5 +60,5 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
  if(metadata.totalCustoms!=null&&items.every(i=>i.customsValue!=null)&&!sum(items.map(i=>i.customsValue)).eq(metadata.totalCustoms))warnings.push(`Таможенная стоимость: сумма товаров ${money(sum(items.map(i=>i.customsValue)))}, графа 12 ${metadata.totalCustoms}`);
  for(const[code,expected]of Object.entries(declaredTotals)){const actual=sum(paymentTotals.filter(p=>p.code===code&&['ИУ','ВУ'].includes(p.sp)).map(p=>p.amount));if(!actual.eq(expected))warnings.push(`Графа Б / 47, код ${code}: Б ${expected}, 47 ${money(actual)}`);}
  metadata.currencyCode=catalog.currencies[metadata.currency]||null;
- return {metadata,items,warnings,paymentTotals,declaredTotals,complete:items.length>0&&!warnings.length,filename:file.name,source:{sp:'https://kzl.kgd.gov.kz/ru/nsi/outp/10/1'},pages:0};
+ return {metadata,items,warnings,notices:metadata.correctionNumber?[correctionNotice(metadata.correctionNumber)]:[],paymentTotals,declaredTotals,complete:items.length>0&&!warnings.length,filename:file.name,source:{sp:'https://kzl.kgd.gov.kz/ru/nsi/outp/10/1'},pages:0};
 }
