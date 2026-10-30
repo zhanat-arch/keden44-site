@@ -5,6 +5,7 @@ const paidButton = document.querySelector('#paidBtn');
 const statusBox = document.querySelector('#paymentStatus');
 const detailsButton = document.querySelector('#showPaymentDetails');
 const detailsForm = document.querySelector('#paymentDetails');
+const cancelButton = document.querySelector('#cancelPaymentClaim');
 let pollTimer;
 let pollCount = 0;
 const purchaseLink = document.querySelector('#purchaseLink');
@@ -22,6 +23,7 @@ function revealPaymentCheck() {
   clearTimeout(paymentRevealTimer);
   paymentCheck.hidden = true;
   if (!signedIn || !accountKey) return;
+  if (localStorage.getItem(CLAIM_KEY)) { paymentCheck.hidden=false; return; }
   const startedAt = Number(sessionStorage.getItem('keden44-purchase-start:' + accountKey));
   if (!startedAt) return;
   const remaining = startedAt + 30000 - Date.now();
@@ -65,7 +67,9 @@ async function checkAccount() {
     revealPaymentCheck();
     purchaseLink.hidden = !signedIn;
     paidButton.disabled = !signedIn;
-    if (signedIn && localStorage.getItem(CLAIM_KEY)) await pollClaim();
+    const linkedClaim=new URL(location.href).searchParams.get('payment');
+    if (signedIn && /^[0-9a-f-]{36}$/i.test(linkedClaim||'')) localStorage.setItem(CLAIM_KEY,linkedClaim);
+    if (signedIn && localStorage.getItem(CLAIM_KEY)) { paymentCheck.hidden=false; await pollClaim(); }
   } catch {
     if (generation !== accountCheck) return;
     loginLink.hidden = false;
@@ -99,7 +103,16 @@ function schedulePoll(delay) {
 }
 
 function showClaim(claim) {
-  paidButton.disabled = ['searching', 'provisional', 'confirmed'].includes(claim.status);
+  paidButton.disabled = ['searching', 'provisional'].includes(claim.status);
+  cancelButton.hidden = !['searching','provisional'].includes(claim.status);
+  if (claim.status === 'cancelled') {
+    clearTimeout(pollTimer);
+    localStorage.removeItem(CLAIM_KEY);
+    detailsButton.hidden=true;detailsForm.hidden=true;
+    statusBox.textContent='Заявка закрыта. После оплаты нажмите «Я оплатил» заново.';
+    statusBox.dataset.state='cancelled';
+    return;
+  }
   if (claim.status === 'confirmed') {
     const validUntil = claim.validUntil
       ? new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(claim.validUntil))
@@ -114,24 +127,33 @@ function showClaim(claim) {
     return;
   }
   if (claim.status === 'provisional') {
-    statusBox.textContent = 'Данные сохранены. Доступ будет продлён после подтверждения платежа.';
+    statusBox.textContent = 'Данные сохранены. Ожидаем письмо Boosty до 24 часов: при однозначном совпадении доступ продлится автоматически. Повторно платить не нужно.';
     statusBox.dataset.state = 'pending';
-    detailsButton.hidden = true;
-    detailsForm.hidden = true;
+    detailsButton.hidden = !detailsForm.hidden;
+    detailsButton.textContent='Уточнить данные платежа';
   } else {
     statusBox.textContent = 'Ищем платёж. Повторно нажимать не нужно — проверяем автоматически.';
     statusBox.dataset.state = 'searching';
-    detailsButton.hidden = !(claim.needsDetails || pollCount >= 3);
+    detailsButton.hidden = !claim.needsDetails || !detailsForm.hidden;
+    if (claim.needsDetails) statusBox.textContent='Пока не удалось найти оплату. Если оплатили, укажите данные покупки. Если только проверяли кнопку, закройте заявку.';
+  }
+  if(claim.queueStatus==='ambiguous')statusBox.textContent='Найдено несколько возможных совпадений. Автоматическое начисление приостановлено: уточните данные покупки или напишите в поддержку.';
+  if(claim.queueStatus==='needs_review'){
+    clearTimeout(pollTimer);
+    statusBox.textContent='За 24 часа не удалось однозначно подтвердить оплату. Заявка сохранена. Не платите повторно: напишите в поддержку для ручной проверки.';
+    return;
   }
   schedulePoll(claim.checkAgainMs || (pollCount < 12 ? 10_000 : 30_000));
 }
 
 async function pollClaim() {
   const claimId = localStorage.getItem(CLAIM_KEY);
+  const account=credentials()?.accountId;
   if (!claimId) return;
   try {
     pollCount += 1;
     const result = await request('/payment/status', { claimId });
+    if (localStorage.getItem(CLAIM_KEY)!==claimId || credentials()?.accountId!==account) return;
     showClaim(result.claim);
   } catch (error) {
     statusBox.textContent = 'Проверка временно недоступна. Повторим автоматически: ' + error.message;
@@ -159,6 +181,14 @@ detailsButton.addEventListener('click', () => {
   detailsButton.hidden = true;
 });
 
+cancelButton.addEventListener('click',async()=>{
+  cancelButton.disabled=true;
+  clearTimeout(pollTimer);
+  try { const result=await request('/payment/cancel',{claimId:localStorage.getItem(CLAIM_KEY)});showClaim(result.claim); }
+  catch(error){statusBox.textContent='Не удалось закрыть заявку: '+error.message;}
+  finally{cancelButton.disabled=false;}
+});
+
 detailsForm.addEventListener('submit', async event => {
   event.preventDefault();
   const submit = detailsForm.querySelector('button[type="submit"]');
@@ -167,8 +197,10 @@ detailsForm.addEventListener('submit', async event => {
   try {
     const result = await request('/payment/identify', {
       claimId: localStorage.getItem(CLAIM_KEY),
-      paidAt: new Date(String(data.get('paidAt'))).toISOString(),
-      payerName: String(data.get('payerName') || '')
+      paidTime: String(data.get('paidTime') || ''),
+      paidDate: String(data.get('paidDate') || ''),
+      payerName: String(data.get('payerName') || ''),
+      payerEmail: String(data.get('payerEmail') || '')
     });
     showClaim(result.claim);
   } catch (error) {

@@ -41,21 +41,24 @@
       <p class="fine-print">После оплаты сохраните подтверждение Boosty. Подписка и доступ учитываются системой KEDEN44 независимо от платёжной площадки; до окончания открытого тестирования оплата не ограничивает доступ.</p>
     </section>
     <section class="payment-check" aria-labelledby="payment-check-title">
-      <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p>Нажмите один раз. Мы сами будем проверять поступление, повторно нажимать не нужно.</p></div>
+      <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p><strong>После оплаты обязательно нажмите «Я оплатил», чтобы активировать доступ.</strong> Нажмите один раз: сначала мы автоматически найдём платёж. Данные покупки понадобятся только если сопоставить его не удастся.</p></div>
       <div class="payment-flow">
         <button id="paidBtn" class="button primary" type="button" disabled>Я оплатил</button>
         <p id="paymentStatus" class="payment-status" role="status">Проверка ещё не запускалась.</p>
-        <button id="showPaymentDetails" class="button secondary" type="button" hidden>Указать данные платежа</button>
+        <button id="showPaymentDetails" class="button secondary" type="button" hidden>Да, я оплатил — указать данные</button>
+        <button id="cancelPaymentClaim" class="button secondary" type="button" hidden>Не платил, просто проверял</button>
         <form id="paymentDetails" class="payment-details" hidden>
-          <label>Точное время оплаты<input name="paidAt" type="datetime-local" required></label>
+          <label>Время оплаты (Казахстан, UTC+5)<input name="paidTime" type="time" required></label>
           <label>Имя покупателя в Boosty<input name="payerName" maxlength="160" placeholder="Как указано в Boosty" required></label>
-          <p>Укажите имя из профиля Boosty, которым купили пост. Данные карты не нужны. Если покупка не найдётся автоматически, обратитесь в поддержку и сохраните подтверждение Boosty.</p>
-          <button class="button primary" type="submit">Активировать с проверкой</button>
+          <label>Email аккаунта Boosty<input name="payerEmail" type="email" maxlength="254" autocomplete="email" required></label>
+          <details><summary>Оплатили в другой день?</summary><label>Дата оплаты (необязательно)<input name="paidDate" type="date"></label></details>
+          <p>Обычно дату указывать не нужно: учтём момент нажатия «Я оплатил», в том числе около полуночи. Если покупка была раньше, уточните дату. Укажите почту именно аккаунта Boosty, с которого оплатили. Данные карты не нужны. Письмо может задержаться: сохраняем заявку в очереди автоматической сверки на 24 часа. Повторно платить не нужно.</p>
+          <button class="button primary" type="submit">Отправить данные для проверки</button>
         </form>
       </div>
     </section>
   </main>
   <footer data-site-footer><a href="/">KEDEN44</a> · <a href="/privacy.html">Конфиденциальность</a> · <a href="/help/">Справка</a></footer>
-  <script type="module" src="/subscription.js?v=20261026-payer-name"></script>
+  <script type="module" src="/subscription.js?v=20261030-payment-queue-24h"></script>
 <script defer src="/shared/footer.js"></script></body>
 </html>
