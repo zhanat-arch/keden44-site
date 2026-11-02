@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>КЗ-сертификаты в KEDEN: временный помощник · KEDEN44</title>
+  <meta name="description" content="Подготовьте XML без КЗ-сертификатов, загрузите ДТ в KEDEN и добавьте реквизиты сертификатов отдельно. Бесплатный временный помощник KEDEN44 до 15 ноября 2026 включительно. ZIP и инструкция для Edge и Chrome.">
+  <link rel="canonical" href="https://keden44.com/tools/kz-certificates/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="КЗ-сертификаты в KEDEN · Помощник KEDEN44">
+  <meta property="og:description" content="Когда загрузка XML останавливается на КЗ-сертификатах: подготовка двух файлов и заполнение графы 44. Скачать расширение и посмотреть инструкцию.">
+  <meta property="og:url" content="https://keden44.com/tools/kz-certificates/">
+  <meta property="og:image" content="https://keden44.com/assets/keden44-mark.png">
+  <link rel="icon" href="/assets/keden44-mark.png">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="/tools/vendor/lucide.min.js"></script>
+  <script defer src="page.js"></script>
+</head>
+<body>
+<header class="top"><a class="brand" href="/"><img src="/assets/keden44-mark.png" alt=""><strong>KEDEN44</strong></a><nav aria-label="Навигация"><a href="#install">Установка</a><a href="#workflow">Как пользоваться</a><a href="/support/">Поддержка</a></nav></header>
+<main>
+  <section class="intro wrap">
+    <p class="eyebrow">Временный помощник · 0.1.0 · 2 ноября 2026</p>
+    <h1>КЗ-сертификаты в KEDEN</h1>
+    <p class="lead">Сначала загрузите декларацию. Затем добавьте сертификаты.</p>
+    <p class="summary">Если загрузка XML останавливается на проверке КЗ-сертификатов через КТРМ, этот отдельный инструмент разделяет работу на два этапа: подготовка XML без этих записей и последующее заполнение графы 44.</p>
+    <div class="download-row"><a class="button primary" id="download" href="downloads/KEDEN44-certificates-0.1.0.zip" download><i data-lucide="download" aria-hidden="true"></i>Скачать расширение ZIP</a><a class="text-link" href="#install">Как установить <i data-lucide="arrow-down" aria-hidden="true"></i></a></div>
+    <p class="file-meta">Версия 0.1.0 · 277 КБ · Windows, Edge и Chrome · Установка вручную вне магазина</p>
+    <div class="notice"><i data-lucide="calendar-days" aria-hidden="true"></i><p><strong>Бесплатно до 15 ноября 2026 включительно.</strong> Время Казахстана (UTC+5). Без подписки и проверки оплаты. После этой даты текущая сборка перестанет выполнять операции; продление автоматически не обещаем.</p></div>
+  </section>
+
+  <section class="band"><div class="wrap scope"><div><p class="eyebrow">Точное правило</p><h2>Только КЗ. Остальное остаётся на месте.</h2></div><div><p>Обрабатываются записи <strong>01401, 01402 и 01403</strong>, только если в XML явно указана страна документа <strong>KZ</strong>.</p><p>Сертификаты РФ, документы с другой или неуказанной страной, инвойсы и остальные записи не удаляются. Исходный XML не перезаписывается.</p></div></div></section>
+
+  <section class="wrap section" id="install">
+    <p class="eyebrow">Начните здесь</p><h2>Установка за несколько шагов</h2>
+    <p class="section-intro">Нужно установить отдельное расширение на компьютере. Архив не нужно загружать в KEDEN.</p>
+    <div class="browser-tabs" role="tablist" aria-label="Браузер"><button id="edge-tab" role="tab" aria-selected="true" aria-controls="edge-instructions">Microsoft Edge</button><button id="chrome-tab" role="tab" aria-selected="false" aria-controls="chrome-instructions">Google Chrome</button></div>
+    <div id="edge-instructions" role="tabpanel" aria-labelledby="edge-tab"><ol class="steps"><li><strong>Скачайте и распакуйте ZIP.</strong> Нажмите на архив правой кнопкой мыши и выберите «Извлечь всё». Сохраните распакованную папку: после установки её не нужно переносить или удалять.</li><li><strong>Откройте страницу расширений.</strong> Вставьте в адресную строку Edge: <code>edge://extensions</code>.</li><li><strong>Включите «Режим разработчика».</strong> Затем нажмите «Загрузить распакованное».</li><li><strong>Выберите папку <code>KEDEN44-certificates-0.1.0</code>.</strong> Внутри неё должен находиться файл <code>manifest.json</code>. Выбирайте именно эту папку, не ZIP и не внешнюю папку с архивом.</li><li><strong>Нажмите значок нового расширения.</strong> Найти его можно в меню расширений браузера. Откроется отдельная вкладка «КЗ сертификаты».</li></ol></div>
+    <div id="chrome-instructions" role="tabpanel" aria-labelledby="chrome-tab" hidden><ol class="steps"><li><strong>Скачайте и распакуйте ZIP.</strong> Нажмите на архив правой кнопкой мыши и выберите «Извлечь всё». Сохраните распакованную папку: после установки её не нужно переносить или удалять.</li><li><strong>Откройте страницу расширений.</strong> Вставьте в адресную строку Chrome: <code>chrome://extensions</code>.</li><li><strong>Включите «Режим разработчика».</strong> Затем нажмите «Загрузить распакованное».</li><li><strong>Выберите папку <code>KEDEN44-certificates-0.1.0</code>.</strong> Внутри неё должен находиться файл <code>manifest.json</code>. Выбирайте именно эту папку, не ZIP и не внешнюю папку с архивом.</li><li><strong>Нажмите значок нового расширения.</strong> Найти его можно в меню расширений браузера. Откроется отдельная вкладка «КЗ сертификаты».</li></ol></div>
+    <p class="small">Если браузер не находит расширение, проверьте, что выбрана папка с <code>manifest.json</code>. Разрешение требуется только для работы с сайтом <code>keden.kgd.gov.kz</code>; пароли и ключи ЭЦП инструменту передавать не нужно.</p>
+  </section>
+
+  <section class="band"><div class="wrap section" id="workflow">
+    <p class="eyebrow">Два этапа вместо одной зависшей загрузки</p><h2>От исходного XML до графы 44</h2>
+    <ol class="workflow steps"><li><strong>Выберите исходный XML с сертификатами.</strong> Во вкладке расширения откройте «Подготовка XML», выберите файл и нажмите «Подготовить два файла».</li><li><strong>Скачайте оба результата.</strong> Первый — XML без КЗ-сертификатов. Второй — Excel со списком сертификатов, номерами товаров, датами и страной документа. Они остаются на вашем компьютере.</li><li><strong>Загрузите подготовленный XML в KEDEN.</strong> Откройте созданную из него ДТ в этом же браузере. Статус должен быть «Черновик».</li><li><strong>Вернитесь во вкладку помощника.</strong> Выберите «Заполнение графы 44», нужную вкладку KEDEN и подготовленный Excel. Если вкладки нет в списке, нажмите кнопку обновления рядом со списком.</li><li><strong>Проверьте привязки.</strong> Закройте открытые формы редактирования в KEDEN и нажмите «Проверить привязки». Инструмент покажет, какие документы будут добавлены, а какие уже существуют.</li><li><strong>Подтвердите добавление и дождитесь результата.</strong> Реквизиты распределятся по указанным товарам. Один документ может быть связан сразу с несколькими товарами: например, <code>1-2,3,4</code>. После сохранения выполняется проверка связей.</li><li><strong>Прикрепите PDF обычным KEDEN44.</strong> Этот помощник заполняет реквизиты, а не загружает PDF. Перед подачей проверьте графу 44 и вложения.</li></ol>
+    <div class="notice warning"><i data-lucide="pause-circle" aria-hidden="true"></i><p><strong>На время заполнения остановите другие автодействия в этой ДТ.</strong> Не редактируйте её вручную, не запускайте прикрепление файлов и удержание сессии другим расширением. После завершения можно продолжать обычную работу.</p></div>
+  </div></section>
+
+  <section class="wrap section"><h2>Вот как выглядит помощник</h2><figure><img class="product-image" src="interface.png" width="1440" height="900" alt="Отдельная вкладка помощника KEDEN44: подготовка XML, заполнение графы 44 и добровольная поддержка проекта" loading="lazy"><figcaption>Помощник открывается отдельной вкладкой. Основное расширение KEDEN44 устанавливать заново не нужно.</figcaption></figure></section>
+
+  <section class="wrap section faq" id="questions"><p class="eyebrow">Перед первым запуском</p><h2>Вопросы и ответы</h2>
+    <details open><summary>Это исправление КТРМ?</summary><p>Нет. Мы не меняем работу КТРМ и не подтверждаем сведения в реестре. Помощник даёт отдельный путь подготовки и добавления реквизитов в черновик. Если сам API KEDEN начнёт отклонять такие сохранения, инструмент покажет ошибку.</p></details>
+    <details><summary>Насколько это проверено?</summary><p>Создание одной записи с привязкой сразу к двум товарам проверено на тестовом черновике в KEDEN. Также проверены чтение XML, сохранение и обратное чтение Excel, защита от дублей и обработка ошибок. Пользовательское тестирование пройдено. Это временная тестовая сборка: перед подачей проверяйте результат своей ДТ.</p></details>
+    <details><summary>Что происходит при повторном запуске?</summary><p>Совпадающие записи, уже существующие у всех указанных товаров, пропускаются. Если реквизиты отличаются или документ есть только у части товаров, автоматическое добавление останавливается: существующие документы не перезаписываются и не удаляются.</p></details>
+    <details><summary>А если сохранение зависло или произошёл разлогин?</summary><p>Не нажимайте добавление многократно. Войдите в KEDEN, откройте нужный черновик и заново выполните «Проверить привязки». При неопределённом результате сохранение не повторяется автоматически: сначала нужно проверить, появился ли документ.</p></details>
+    <details><summary>Куда отправляются XML и Excel?</summary><p>Подготовка файлов выполняется локально в браузере, без загрузки на сервер KEDEN44. При подтверждении добавления реквизиты направляются в KEDEN с использованием вашего действующего входа. Отдельный вход в KEDEN44, пароль или ЭЦП для помощника не требуются.</p></details>
+    <details><summary>Нужно ли платить или оформлять подписку?</summary><p>Нет. Временный помощник работает бесплатно до 15 ноября 2026 включительно. Поддержка проекта добровольная и не продлевает срок этой сборки. Основная подписка KEDEN44 — отдельный продукт.</p></details>
+    <details><summary>Как удалить помощника?</summary><p>После завершения работы откройте страницу расширений браузера и удалите только «KEDEN44 · КЗ сертификаты». Основное расширение KEDEN44 удалять не нужно. Удаление помощника не удаляет добавленные записи из KEDEN.</p></details>
+    <p class="small">Инструмент не подписывает и не подаёт ДТ. Он не проверяет применимость или действительность сертификатов: соответствие документов товарам и итоговое заполнение проверяет декларант.</p>
+  </section>
+
+  <section class="band support-band"><div class="wrap section"><p class="eyebrow">Сделано для нашей работы</p><h2>Решили вашу проблему?</h2><p>Этот помощник сделали как временное решение, чтобы не тратить время на ручное заполнение одинаковых реквизитов. Если он помог вам в работе, можно поддержать разработку.</p><div class="download-row"><a class="button primary" href="https://boosty.to/zhanat-arch?locale=ru_RU" target="_blank" rel="noopener noreferrer"><i data-lucide="heart" aria-hidden="true"></i>Поддержать проект</a><a class="button secondary" href="/support/"><i data-lucide="message-circle" aria-hidden="true"></i>Написать в поддержку</a></div><p class="small">Донат добровольный. На Boosty проверяйте выбранный способ поддержки: подписка может продлеваться автоматически. Для использования этого инструмента оформлять её не нужно.</p><p><a href="/feedback/">Поделиться отзывом о KEDEN44</a></p></div></section>
+  <section class="wrap section final-download"><h2>Скачать и начать работу</h2><p>ZIP-архив содержит папку расширения и текстовую инструкцию, которую удобно переслать в WhatsApp.</p><a class="button primary" href="downloads/KEDEN44-certificates-0.1.0.zip" download><i data-lucide="download" aria-hidden="true"></i>Скачать ZIP · 0.1.0</a><p class="small hash">SHA-256: <code>da505538ab862c0878d1fc5d160f942cae2629894771b108a0a2cf79c4ec73ad</code></p></section>
+</main>
+<footer data-site-footer><a href="/">KEDEN44</a> · <a href="/support/">Поддержка</a> · <a href="/privacy.html">Конфиденциальность</a></footer><script defer src="/shared/footer.js"></script>
+</body></html>
