@@ -52,4 +52,4 @@ $('download').addEventListener('click',async()=>{
 });
 import {parseDeclaration} from '../accounting-engine.js';
 import {makeReport} from '../excel-report.js';
-import {requireAccess,recordReport} from '../access.js?v=access-20261030';
+import {requireAccess,recordReport} from '../access.js?v=offline-20261104';

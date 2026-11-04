@@ -73,4 +73,4 @@ $('auditForm').addEventListener('submit',async event=>{
 for(const tab of document.querySelectorAll('[data-view]'))tab.addEventListener('click',()=>{for(const t of document.querySelectorAll('[data-view]')){t.classList.toggle('selected',t===tab);t.setAttribute('aria-selected',String(t===tab));$(t.dataset.view).hidden=t!==tab;}});
 import {detect} from '../pdf-core.js';
 import {readRequirement,readFrro,checkAudit} from '../audit-engine.js';
-import {requireAccess,recordReport} from '../access.js?v=access-20261030';
+import {requireAccess,recordReport} from '../access.js?v=offline-20261104';

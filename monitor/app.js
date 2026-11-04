@@ -15,7 +15,7 @@ import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPag
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
-import { createTelegramClient } from './modules/telegram/client.js?v=3';
+import { createTelegramClient } from './modules/telegram/client.js?v=offline-20261104';
 import { installTelegramLogin } from './modules/telegram/login.js';
 import { createCardSharing } from './modules/ui/card-sharing.js?v=3';
 import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
