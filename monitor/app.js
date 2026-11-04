@@ -6,6 +6,7 @@ import { isRecordDeleted, mergeRecordDeletions } from './modules/core/deletions.
 import { refreshedFields } from './modules/core/refresh.js';
 import { normalizeExtensionGoods } from './modules/core/goods.js';
 import { normalizeMonitorTransfer } from './modules/core/transfer.mjs';
+import { forLegacyBridge, fromLegacyBridge } from './modules/core/legacy-bridge.mjs';
 import { createBoardView } from './modules/core/board-view.js';
 import { relatedDeclarationParts, shipmentGroupKey } from './modules/core/shipment.js';
 import { createImportQueue } from './modules/import/queue.js';
@@ -185,7 +186,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       const corrections = [];
 
       for (const rawItem of items) {
-        const item = normalizeMonitorTransfer(normalizeExtensionGoods(rawItem));
+        const item = normalizeMonitorTransfer(normalizeExtensionGoods(fromLegacyBridge(rawItem)));
         if (typeof item.onInspection !== 'boolean') {
           item.onInspection = (item.history || [])
             .filter(line => /уведомление KEDEN:/i.test(line))
@@ -282,7 +283,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
             return currentNumbers.has(number) || !knownRecordNumbers.has(number);
           });
           mergeCloudRecords(external);
-          store.setItem(KEY, JSON.stringify(persistentRecords()));
+          store.setItem(KEY, JSON.stringify(persistentRecords().map(forLegacyBridge)));
           knownRecordNumbers = new Set(persistentRecords().map(record => declarationNumberParts(record.dtNumber).baseNumber || record.id));
         }
       } catch (error) {
@@ -1490,7 +1491,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
       const previous = JSON.stringify(persistentRecords());
       applyRecordDeletions(result.deletedRecords);
       if (previous !== JSON.stringify(persistentRecords())) {
-        store?.setItem(KEY, JSON.stringify(persistentRecords()));
+        store?.setItem(KEY, JSON.stringify(persistentRecords().map(forLegacyBridge)));
         render();
       }
     }
@@ -1505,7 +1506,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
         mergeCloudRecords(loadRecords());
         mergeCloudRecords(result.cloud?.records || []);
         if (JSON.stringify(persistentRecords()) === previous) return;
-        try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords())); } catch {}
+        try { if (store) store.setItem(KEY, JSON.stringify(persistentRecords().map(forLegacyBridge))); } catch {}
         render();
       } finally { cloudReadRefreshRunning = false; }
     }
