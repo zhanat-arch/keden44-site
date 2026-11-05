@@ -27,6 +27,12 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
     for(let pos=0;pos<starts.length;pos++){
      const top=starts[pos].top,end=starts[pos+1]?.top||900,num=firstNumber(crop(words,310,top+10,341,top+28));if(!num||num.includes('.'))continue;
      const item={number:Number(num),page:index,payments:[]};item.tnved=crop(words,343,top+10,480,top+39).match(/\b\d{10}\b/)?.[0]||'';item.procedure=itemProcedure(words,top,end);
+     const codeRow=words.find(w=>w.text===item.tnved&&w.x0>=343&&w.x0<418&&w.top>=top+10&&w.top<Math.min(end,top+39));
+     if(codeRow){
+      const codes=crop(words,418,codeRow.top-2.3,582,codeRow.top+2.3);
+      item.mnrD0129=codes.match(/\bD0129\b/)?.[0];
+      item.mnrD0122=codes.match(/\bD0122\b/)?.[0];
+     }
      const a34=label(words,34,top,end,340),a44=words.find(w=>w.text==='44'&&w.x0<65&&w.top>top&&w.top<end);
      const description=crop(words,67,top+20,341,a44?.top||a34?.top||top+50).split(/(?:\n|\s)2\.\s/)[0];
      item.name=(fullGoodsName('ГРУППА ТОВАРОВ 1: '+description)||description.replace(/\s+/g,' ').replace(/^1\.\s*/,'')).replace(/\s+([,.:;])/g,'$1');

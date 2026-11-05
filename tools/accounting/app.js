@@ -50,6 +50,6 @@ $('download').addEventListener('click',async()=>{
   const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=`Отчет_${(data.metadata.dtNumber||'ДТ').replaceAll('/','_')}_${$('profile').value}.xlsx`;a.click();recordReport($('profile').value);setTimeout(()=>URL.revokeObjectURL(url),30000);$('status').textContent='Excel сформирован';
  }catch(error){$('status').textContent=error.message;}finally{$('download').disabled=false;}
 });
-import {parseDeclaration} from '../accounting-engine.js?v=goods-name-20261105';
-import {makeReport} from '../excel-report.js?v=group-label-20261105';
+import {parseDeclaration} from '../accounting-engine.js?v=mnr-20261105';
+import {makeReport} from '../excel-report.js?v=mnr-20261105';
 import {requireAccess,recordReport} from '../access.js?v=offline-20261104';

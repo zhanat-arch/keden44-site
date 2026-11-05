@@ -43,7 +43,7 @@ export async function makeReport(data,profile,catalog){
   if(item.invoiceValue!=null&&m.exchangeRate!=null){v.invoiceKzt=money(dec(item.invoiceValue).times(m.exchangeRate));if(item.quantity&&dec(item.quantity).gt('0'))v.unitPrice=money(dec(v.invoiceKzt).div(item.quantity));}
   if(item.payments.length&&item.payments.every(p=>!kind(p).review&&kind(p).family!=='unknown'))v.nonVat=money(sum(item.payments.filter(p=>['ИУ','ВУ'].includes(p.sp)&&kind(p).family!=='vat').map(p=>p.amount)));
   const calculatedCost=costOf(item,catalog);v.cost=calculatedCost?.total??null;v.costNoVat=calculatedCost?.noVat??null;v.unitCost=calculatedCost?.unit??null;
-  const keys=profile.headers.map((header,c)=>profile.id==='detailed'&&header==='Характеристики товара (графа 31)'?'description':/инвойс|г[ррафа. ]*44/i.test(header)?/дата/i.test(header)?'invoiceDate':/номер/i.test(header)?'invoice':'invoiceReferences':maps[profile.id][c]);
+  const keys=profile.headers.map((header,c)=>header==='МНР D0129'?'mnrD0129':header==='МНР D0122'?'mnrD0122':profile.id==='detailed'&&header==='Характеристики товара (графа 31)'?'description':/инвойс|г[ррафа. ]*44/i.test(header)?/дата/i.test(header)?'invoiceDate':/номер/i.test(header)?'invoice':'invoiceReferences':maps[profile.id][c]);
   const r=profile.headerRow+index+1;sheet.getRow(r).values=keys.map(key=>{const value=v[key];return value==null?null:value instanceof Date||typeof value==='number'?value:numeric.has(key)?Number(value):String(value);});
   for(let c=0;c<profile.headers.length;c++){const key=keys[c];sheet.getCell(r,c+1).numFmt=v[key] instanceof Date?'dd.mm.yyyy':currencyKeys.has(key)?'#,##0.00':numeric.has(key)?key==='number'||key==='packages'||key==='transportMode'?'0':'0.00####':'@';}
  }
