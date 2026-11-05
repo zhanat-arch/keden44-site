@@ -1,3 +1,5 @@
+import {publicQrUrl} from '../keden/share-qr.mjs';
+
 const KEY = 'keden44-shared-card-links-v1';
 const valid = token => typeof token === 'string' && /^[a-f0-9]{64}$/.test(token);
 export function installSharedCards({client, signedIn = () => false} = {}) {
@@ -79,6 +81,14 @@ export function installSharedCards({client, signedIn = () => false} = {}) {
           target.body.replaceChildren();
           addText(target.body,'h3',[record.regime,record.dtNumber].filter(Boolean).join(' · '));
           addText(target.body,'p',record.status || 'Без статуса','sharedCardStatus');
+          const qrUrl = publicQrUrl(record.qrUrl);
+          if (qrUrl) {
+            const link = addText(target.body,'a','QR · KEDEN');
+            link.href = qrUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.title = 'Проверить статус на сайте KEDEN';
+          }
           addText(target.body,'p','Полученная · только чтение','tiny');
           if (record.declarant) addText(target.body,'p',record.declarant,'privateData');
           if (record.goods) addText(target.body,'p',record.goods,'privateData sharedCardGoods');

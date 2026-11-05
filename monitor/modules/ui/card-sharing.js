@@ -2,7 +2,7 @@ export function createCardSharing({client, sync, signedIn, status}) {
   const dialog = document.createElement('dialog');
   dialog.className = 'cardSharingDialog';
   dialog.innerHTML = '<div class="dh"><h2>Доступ к карточке</h2><button type="button" data-close aria-label="Закрыть">×</button></div>'
-    + '<p data-number></p><p>Любой получивший ссылку сможет видеть номер ДТ, первый товар, статус и даты обновлений. Без заметок, документов и доступа к вашему монитору. Уже увиденные данные отозвать невозможно.</p>'
+    + '<p data-number></p><p>Любой получивший ссылку сможет видеть номер ДТ, первый товар, статус, даты обновлений и публичную QR-ссылку KEDEN, если она есть. Без заметок, документов и доступа к вашему монитору. Уже увиденные данные отозвать невозможно.</p>'
     + '<div class="cardShareOptions"><label><input type="checkbox" data-declarant> Показывать декларанта</label><label><input type="checkbox" data-notifications> Показывать историю уведомлений</label><small>Уведомления могут содержать ФИО, суммы и служебные подробности.</small></div>'
     + '<label data-link-label hidden>Ссылка только для чтения<input data-link readonly aria-label="Ссылка на карточку"></label>'
     + '<p data-status role="status"></p><div class="da"><button type="button" data-copy hidden>Копировать ссылку</button><button type="button" data-revoke hidden>Прекратить доступ</button><button type="button" data-create class="primary">Включить доступ по ссылке</button></div>';

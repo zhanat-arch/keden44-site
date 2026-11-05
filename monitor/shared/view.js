@@ -1,10 +1,15 @@
+import {publicQrUrl} from '../modules/keden/share-qr.mjs';
+
 const token = location.hash.slice(1);
 const card = document.querySelector('#card');
 const message = document.querySelector('#message');
 const refresh = document.querySelector('#refresh');
+const kedenLink = document.querySelector('#kedenLink');
 let stopped = false, loading = false, lastSynced = '';
 const date = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ru-RU') : value;
 function clearCard() {
+  kedenLink.hidden = true;
+  kedenLink.removeAttribute('href');
   document.querySelector('#addToMonitor').hidden = true;
   card.hidden = true;
   document.querySelector('#number').textContent = '';
@@ -30,6 +35,10 @@ async function load() {
     if (response.status === 404) {stopped = true; clearCard(); message.textContent = 'Владелец отключил доступ или удалил карточку'; return;}
     if (!response.ok || !data.ok) throw new Error('Недоступно');
     const record = data.record;
+    const qrUrl = publicQrUrl(record.qrUrl);
+    kedenLink.hidden = !qrUrl;
+    if (qrUrl) kedenLink.href = qrUrl;
+    else kedenLink.removeAttribute('href');
     document.querySelector('#number').textContent = [record.regime, record.dtNumber].filter(Boolean).join(' · ');
     document.querySelector('#status').textContent = record.status || 'Статус пока не указан';
     document.querySelector('#inspection').hidden = !record.onInspection;

@@ -17,8 +17,8 @@ import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, get
 import { recordMatchesQuery } from './modules/core/search.js';
 import { createTelegramClient } from './modules/telegram/client.js?v=offline-20261104';
 import { installTelegramLogin } from './modules/telegram/login.js';
-import { createCardSharing } from './modules/ui/card-sharing.js?v=3';
-import { installSharedCards } from './modules/ui/shared-cards.js?v=2';
+import { createCardSharing } from './modules/ui/card-sharing.js?v=4';
+import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
 
 (() => {
     const KEY = 'dt-board-records-v6';
