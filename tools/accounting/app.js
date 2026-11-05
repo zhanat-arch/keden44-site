@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 let data=null,generation=0;
-const ready=Promise.all([fetch('../payment-types.json').then(r=>r.json()),fetch('../templates.json').then(r=>r.json())]);
+const ready=Promise.all([fetch('../payment-types.json').then(r=>r.json()),fetch('../templates.json?v=characteristics-20261105').then(r=>r.json())]);
 lucide.createIcons();
 const fmt=(value,digits=2)=>value==null?'—':Number(value).toLocaleString('ru-RU',{maximumFractionDigits:digits,minimumFractionDigits:digits});
 function cell(row,value,cls=''){const td=document.createElement('td');td.textContent=value??'—';td.className=cls;row.append(td);}
@@ -51,5 +51,5 @@ $('download').addEventListener('click',async()=>{
  }catch(error){$('status').textContent=error.message;}finally{$('download').disabled=false;}
 });
 import {parseDeclaration} from '../accounting-engine.js?v=goods-name-20261105';
-import {makeReport} from '../excel-report.js';
+import {makeReport} from '../excel-report.js?v=characteristics-20261105';
 import {requireAccess,recordReport} from '../access.js?v=offline-20261104';

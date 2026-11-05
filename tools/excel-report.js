@@ -40,7 +40,7 @@ export async function makeReport(data,profile,catalog){
   if(item.invoiceValue!=null&&m.exchangeRate!=null){v.invoiceKzt=money(dec(item.invoiceValue).times(m.exchangeRate));if(item.quantity&&dec(item.quantity).gt('0'))v.unitPrice=money(dec(v.invoiceKzt).div(item.quantity));}
   if(item.payments.length&&item.payments.every(p=>!kind(p).review&&kind(p).family!=='unknown'))v.nonVat=money(sum(item.payments.filter(p=>['ИУ','ВУ'].includes(p.sp)&&kind(p).family!=='vat').map(p=>p.amount)));
   const calculatedCost=costOf(item,catalog);v.cost=calculatedCost?.total??null;v.costNoVat=calculatedCost?.noVat??null;v.unitCost=calculatedCost?.unit??null;
-  const keys=profile.headers.map((header,c)=>/инвойс|г[ррафа. ]*44/i.test(header)?/дата/i.test(header)?'invoiceDate':/номер/i.test(header)?'invoice':'invoiceReferences':maps[profile.id][c]);
+  const keys=profile.headers.map((header,c)=>profile.id==='detailed'&&header==='Характеристики товара (графа 31)'?'description':/инвойс|г[ррафа. ]*44/i.test(header)?/дата/i.test(header)?'invoiceDate':/номер/i.test(header)?'invoice':'invoiceReferences':maps[profile.id][c]);
   const r=profile.headerRow+index+1;sheet.getRow(r).values=keys.map(key=>{const value=v[key];return value==null?null:value instanceof Date||typeof value==='number'?value:numeric.has(key)?Number(value):String(value);});
   for(let c=0;c<profile.headers.length;c++){const key=keys[c];sheet.getCell(r,c+1).numFmt=v[key] instanceof Date?'dd.mm.yyyy':currencyKeys.has(key)?'#,##0.00':numeric.has(key)?key==='number'||key==='packages'||key==='transportMode'?'0':'0.00####':'@';}
  }
@@ -68,8 +68,17 @@ export async function makeReport(data,profile,catalog){
  notes.eachRow(row=>{row.height=48;row.eachCell(cell=>{cell.alignment={wrapText:true,vertical:'middle'};});});
  sheet.columns.forEach(c=>c.width=18);sheet.getColumn(profile.id==='detailed'?5:profile.id==='classic'?17:18).width=44;sheet.getRow(profile.headerRow).height=64;
  const nameColumn=profile.id==='detailed'?5:profile.id==='classic'?17:18;
+ const characteristicsColumn=profile.id==='detailed'?profile.headers.indexOf('Характеристики товара (графа 31)')+1:0;
  for(let r=profile.headerRow+1;r<=profile.headerRow+data.items.length;r++){const cell=sheet.getCell(r,nameColumn);cell.alignment={...cell.alignment,wrapText:true};const invoiceLines=profile.headers.reduce((max,h,c)=>/инвойс|г[ррафа. ]*44/i.test(h)?Math.max(max,String(sheet.getCell(r,c+1).text||'').split('\n').reduce((n,line)=>n+Math.max(1,Math.ceil(line.length/17)),0)):max,0);sheet.getRow(r).height=Math.max(36,Math.min(409,Math.max(Math.ceil(String(cell.value||'').length/38),invoiceLines)*13));}
  for(let c=0;c<profile.headers.length;c++)if(/инвойс|г[ррафа. ]*44/i.test(profile.headers[c]))sheet.getColumn(c+1).alignment={wrapText:true,vertical:'middle'};
+ if(characteristicsColumn){
+  sheet.getColumn(characteristicsColumn).width=72;
+  for(let r=profile.headerRow+1;r<=profile.headerRow+data.items.length;r++){
+   const cell=sheet.getCell(r,characteristicsColumn),row=sheet.getRow(r);
+   cell.alignment={wrapText:true,vertical:'top'};
+   row.height=Math.min(409,Math.max(row.height,Math.ceil(cell.text.length/60)*14+8));
+  }
+ }
  for(const[ws,r]of[[sheet,profile.headerRow],[raw,1],[totals,5],[totals,20]])ws.getRow(r).eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EEF5'}};c.font={name:'Arial',size:10,bold:true};c.alignment={wrapText:true,vertical:'middle'};});
  raw.columns.forEach(c=>c.width=22);for(let r=21;r<summaryEnd;r++){totals.getRow(r).height=r>=21+keys.length?48:34;totals.getRow(r).eachCell(cell=>{cell.alignment={wrapText:true,vertical:'middle'};});}totals.getRow(6).font={name:'Arial',size:10,bold:true};
  return wb.xlsx.writeBuffer();
