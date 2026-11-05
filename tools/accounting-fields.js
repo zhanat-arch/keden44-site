@@ -7,6 +7,17 @@ export function fullGoodsName(description){
  return [...new Set(names)].join('; ');
 }
 
+export function preferredGoodsName(main, appendix){
+ const full=fullGoodsName(appendix);
+ if(!main)return full;
+ if(!full)return main;
+ const normalize=value=>value.normalize('NFKC').toUpperCase().replace(/\s+/g,'');
+ const prefix=normalize(main.replace(/(?:…|\.{3})\s*$/u,''));
+ const candidate=normalize(full);
+ // A longer matching prefix can restore text clipped without an ellipsis.
+ return prefix.length>=16&&candidate.length>prefix.length&&candidate.startsWith(prefix)?full:main;
+}
+
 export function invoiceDate(value){
  const s=String(value||'').trim(),m=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/),iso=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
  if(!m&&!iso)return null;
