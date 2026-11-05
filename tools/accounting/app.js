@@ -51,5 +51,5 @@ $('download').addEventListener('click',async()=>{
  }catch(error){$('status').textContent=error.message;}finally{$('download').disabled=false;}
 });
 import {parseDeclaration} from '../accounting-engine.js?v=goods-name-20261105';
-import {makeReport} from '../excel-report.js?v=characteristics-20261105';
+import {makeReport} from '../excel-report.js?v=group-label-20261105';
 import {requireAccess,recordReport} from '../access.js?v=offline-20261104';

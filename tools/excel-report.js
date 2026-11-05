@@ -1,7 +1,7 @@
 import {dec,money,sum,SP} from './pdf-core.js';
 import {costOf} from './costing.js';
 import {declarationHeading,correctionNotice} from './report-heading.js';
-import {invoiceDate,displayInvoiceDate} from './accounting-fields.js';
+import {fullGoodsName,invoiceDate,displayInvoiceDate} from './accounting-fields.js';
 const maps={
  classic:['dtNumber','regime','transport','transportMode','sender','receiver',null,'declarant','financial','delivery','currency','exchangeRate',null,null,'number','tnved','name','departure','departureCode','destination','destinationCode','tradeCountry','origin','net','unit','extraQuantity','invoiceValue','customsValue','statValue','fee',null,'duty','exportDuty','excise','vat','vatRate','conditionalFee',null,'conditionalDuty','conditionalExportDuty','conditionalExcise','conditionalVat','conditionalVatRate'],
  extended:['dtNumber','regime','packages','transport','transportMode','sender','receiver',null,'declarant','financial','delivery','currency','exchangeRate',null,null,'number','tnved','name','description','quantity','manufacturer','brand','model','article','serial','departure','departureCode','destination','destinationCode','tradeCountry','origin','net','gross','unit','extraQuantity','invoiceValue','customsValue','statValue','fee',null,'duty','exportDuty','dutyRate','excise','exciseRate','vat','vatRate','conditionalFee',null,'conditionalDuty','conditionalExportDuty',null,'conditionalExcise',null,'conditionalVat','conditionalVatRate','mos'],
@@ -30,6 +30,9 @@ export async function makeReport(data,profile,catalog){
  const [office,,serial]=(m.dtNumber||'').split('/');
  for(const [index,item] of data.items.entries()){
   const v={...base,...item,unit:item.extraUnit||item.quantityUnit,customsOffice:office,documentSerial:serial};
+  if(v.description)v.description=profile.id==='detailed'
+   ? fullGoodsName(v.description).replace(/\s+2\.\s+\d[^;]*,\s*[A-Z0-9]+\s*-\s*\d+\s*$/u,'')
+   : v.description.replace(/(^|\s)ГРУППА\s+ТОВАРОВ\s+1\s*:\s*/giu,'$1').trim();
   if(item.invoices?.length){v.invoice=item.invoices.map(i=>i.number).join('\n');v.invoiceDate=item.invoices.length===1&&invoiceDate(item.invoices[0].date)?new Date(invoiceDate(item.invoices[0].date)+'T00:00:00Z'):item.invoices.map(i=>displayInvoiceDate(i.date)).join('\n');}
   if(invoiceDate(v.documentDate))v.documentDate=new Date(invoiceDate(v.documentDate)+'T00:00:00Z');
   // The legacy separate special-duty column is ambiguous; never duplicate a protective duty into it.
