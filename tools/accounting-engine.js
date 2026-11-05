@@ -1,5 +1,5 @@
 import {openPdf,wordsOf,pageText,crop,label,firstNumber,paymentGroups,dec,money,sum,SP} from './pdf-core.js';
-import {fullGoodsName,preferredGoodsName,readInvoiceRows,invoiceReferences,itemProcedure} from './accounting-fields.js?v=goods-name-20261105';
+import {fullGoodsName,goodsCharacteristics,preferredGoodsName,readInvoiceRows,invoiceReferences,itemProcedure} from './accounting-fields.js?v=characteristics-boundary-20261105';
 import {declarationReference,correctionNotice} from './report-heading.js';
 export async function parseDeclaration(file,catalog,progress=()=>{}){
  const pdf=await openPdf(file),byId=new Map(),appendix=new Map(),invoices=new Map(),metadata={},warnings=[],declaredTotals={};
@@ -53,6 +53,7 @@ export async function parseDeclaration(file,catalog,progress=()=>{}){
  }finally{await pdf.destroy();}
  const items=[...byId.values()].sort((a,b)=>a.number-b.number);
  for(const item of items)item.name=preferredGoodsName(item.name,appendix.get(item.number));
+ for(const item of items)item.characteristics=goodsCharacteristics(appendix.get(item.number));
  for(const item of items){const extra=appendix.get(item.number)?.replace(/\s+/g,' ').trim();if(extra){item.description=extra;for(const [field,tag]of[['article','АРТИКУЛ'],['manufacturer','ПРОИЗВОДИТЕЛЬ'],['brand','МАРКА'],['trademark','ТОВАРНЫЙ ЗНАК'],['model','МОДЕЛЬ'],['serial','СЕРИЙНЫЕ НОМЕРА']])item[field]=extra.match(new RegExp(tag+'\\s+([^;]+)'))?.[1]?.trim();const q=[...extra.matchAll(/КОЛИЧЕСТВО\s+([\d,.]+)\s*([^;]+)/g)];if(q.length===1){item.quantity=dec(q[0][1])?.toString()??null;item.unitName=q[0][2].trim();}else if(q.length>1)warnings.push(`Товар №${item.number}: несколько групп, количество требует проверки`);}
   item.invoices=invoices.get(item.number)||[];item.invoice=item.invoices.map(i=>i.number).join('\n')||null;item.invoiceDate=item.invoices.map(i=>i.date||'').join('\n')||null;item.invoiceReferences=invoiceReferences(item.invoices)||null;
   if(!item.extraUnit&&item.unitName==='ШТ')item.quantityUnit='796';

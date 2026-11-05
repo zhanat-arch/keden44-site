@@ -1,7 +1,7 @@
 import {dec,money,sum,SP} from './pdf-core.js';
 import {costOf} from './costing.js';
 import {declarationHeading,correctionNotice} from './report-heading.js';
-import {fullGoodsName,invoiceDate,displayInvoiceDate} from './accounting-fields.js';
+import {invoiceDate,displayInvoiceDate} from './accounting-fields.js';
 const maps={
  classic:['dtNumber','regime','transport','transportMode','sender','receiver',null,'declarant','financial','delivery','currency','exchangeRate',null,null,'number','tnved','name','departure','departureCode','destination','destinationCode','tradeCountry','origin','net','unit','extraQuantity','invoiceValue','customsValue','statValue','fee',null,'duty','exportDuty','excise','vat','vatRate','conditionalFee',null,'conditionalDuty','conditionalExportDuty','conditionalExcise','conditionalVat','conditionalVatRate'],
  extended:['dtNumber','regime','packages','transport','transportMode','sender','receiver',null,'declarant','financial','delivery','currency','exchangeRate',null,null,'number','tnved','name','description','quantity','manufacturer','brand','model','article','serial','departure','departureCode','destination','destinationCode','tradeCountry','origin','net','gross','unit','extraQuantity','invoiceValue','customsValue','statValue','fee',null,'duty','exportDuty','dutyRate','excise','exciseRate','vat','vatRate','conditionalFee',null,'conditionalDuty','conditionalExportDuty',null,'conditionalExcise',null,'conditionalVat','conditionalVatRate','mos'],
@@ -30,9 +30,7 @@ export async function makeReport(data,profile,catalog){
  const [office,,serial]=(m.dtNumber||'').split('/');
  for(const [index,item] of data.items.entries()){
   const v={...base,...item,unit:item.extraUnit||item.quantityUnit,customsOffice:office,documentSerial:serial};
-  if(v.description)v.description=profile.id==='detailed'
-   ? fullGoodsName(v.description).replace(/\s+2\.\s+\d[^;]*,\s*[A-Z0-9]+\s*-\s*\d+\s*$/u,'')
-   : v.description.replace(/(^|\s)ГРУППА\s+ТОВАРОВ\s+1\s*:\s*/giu,'$1').trim();
+  if(v.description)v.description=v.description.replace(/(^|\s)ГРУППА\s+ТОВАРОВ\s+1\s*:\s*/giu,'$1').trim();
   if(item.invoices?.length){v.invoice=item.invoices.map(i=>i.number).join('\n');v.invoiceDate=item.invoices.length===1&&invoiceDate(item.invoices[0].date)?new Date(invoiceDate(item.invoices[0].date)+'T00:00:00Z'):item.invoices.map(i=>displayInvoiceDate(i.date)).join('\n');}
   if(invoiceDate(v.documentDate))v.documentDate=new Date(invoiceDate(v.documentDate)+'T00:00:00Z');
   // The legacy separate special-duty column is ambiguous; never duplicate a protective duty into it.
@@ -43,7 +41,7 @@ export async function makeReport(data,profile,catalog){
   if(item.invoiceValue!=null&&m.exchangeRate!=null){v.invoiceKzt=money(dec(item.invoiceValue).times(m.exchangeRate));if(item.quantity&&dec(item.quantity).gt('0'))v.unitPrice=money(dec(v.invoiceKzt).div(item.quantity));}
   if(item.payments.length&&item.payments.every(p=>!kind(p).review&&kind(p).family!=='unknown'))v.nonVat=money(sum(item.payments.filter(p=>['ИУ','ВУ'].includes(p.sp)&&kind(p).family!=='vat').map(p=>p.amount)));
   const calculatedCost=costOf(item,catalog);v.cost=calculatedCost?.total??null;v.costNoVat=calculatedCost?.noVat??null;v.unitCost=calculatedCost?.unit??null;
-  const keys=profile.headers.map((header,c)=>header==='МНР D0129'?'mnrD0129':header==='МНР D0122'?'mnrD0122':profile.id==='detailed'&&header==='Характеристики товара (графа 31)'?'description':/инвойс|г[ррафа. ]*44/i.test(header)?/дата/i.test(header)?'invoiceDate':/номер/i.test(header)?'invoice':'invoiceReferences':maps[profile.id][c]);
+  const keys=profile.headers.map((header,c)=>header==='МНР D0129'?'mnrD0129':header==='МНР D0122'?'mnrD0122':profile.id==='detailed'&&header==='Характеристики товара (графа 31)'?'characteristics':/инвойс|г[ррафа. ]*44/i.test(header)?/дата/i.test(header)?'invoiceDate':/номер/i.test(header)?'invoice':'invoiceReferences':maps[profile.id][c]);
   const r=profile.headerRow+index+1;sheet.getRow(r).values=keys.map(key=>{const value=v[key];return value==null?null:value instanceof Date||typeof value==='number'?value:numeric.has(key)?Number(value):String(value);});
   for(let c=0;c<profile.headers.length;c++){const key=keys[c];sheet.getCell(r,c+1).numFmt=v[key] instanceof Date?'dd.mm.yyyy':currencyKeys.has(key)?'#,##0.00':numeric.has(key)?key==='number'||key==='packages'||key==='transportMode'?'0':'0.00####':'@';}
  }

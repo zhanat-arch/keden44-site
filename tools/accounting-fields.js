@@ -7,6 +7,18 @@ export function fullGoodsName(description){
  return [...new Set(names)].join('; ');
 }
 
+export function goodsCharacteristics(appendix){
+ const field=String.raw`(?:ТОВАРНЫЙ[ \t]+ЗНАК|МАРКА|МОДЕЛЬ|АРТИКУЛ|СЕРИЙНЫЕ[ \t]+НОМЕРА|КОЛИЧЕСТВО|ПРОИЗВОДИТЕЛЬ)(?:[ \t]*:[ \t]*|[ \t]+)[^;\s][^;\r\n]*;`;
+ const block=new RegExp(String.raw`(?:^|\n|;)[ \t]*`+field+String.raw`(?=\s*`+field+')','iu');
+ const groups=String(appendix||'').split(/ГРУППА[ \t]+ТОВАРОВ[ \t]+\d+[ \t]*:/giu);
+ const descriptions=(groups.length>1?groups.slice(1):groups).map(group=>{
+  const boundary=group.search(block);
+  const description=boundary<0?group:group.slice(0,boundary);
+  return description.replace(/\n[ \t]*2\.[ \t]+\d[^\n]*,[ \t]*[A-Z0-9]+[ \t]*-[ \t]*\d+\s*$/u,'').replace(/\s+/g,' ').replace(/^\s*1\.\s*/,'').trim();
+ }).filter(Boolean);
+ return [...new Set(descriptions)].join('; ');
+}
+
 export function preferredGoodsName(main, appendix){
  const full=fullGoodsName(appendix);
  if(!main)return full;
