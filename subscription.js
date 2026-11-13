@@ -10,6 +10,8 @@ let pollTimer;
 let pollCount = 0;
 const purchaseLink = document.querySelector('#purchaseLink');
 const accountStatus = document.querySelector('#subscriptionAccount');
+const subscriptionStatus = document.querySelector('#subscriptionStatus');
+const checkSubscriptionStatus = document.querySelector('#checkSubscriptionStatus');
 const loginLink = document.querySelector('#subscriptionLogin');
 const paymentCheck = document.querySelector('.payment-check');
 purchaseLink.after(paymentCheck);
@@ -19,6 +21,67 @@ let signedIn = false;
 let accountCheck = 0;
 let paymentRevealTimer;
 let accountKey = '';
+let accessRequest;
+let lastAccessCheck = 0;
+let accessAccount = '';
+
+function formatAccessDate(value) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Qyzylorda'
+  }).format(new Date(value));
+}
+
+async function refreshSubscription(force = false) {
+  if (!signedIn || !accountKey) return;
+  const device = credentials();
+  const key = device?.accountId + ':' + accountKey;
+  if (accessRequest?.key === key) return accessRequest.pending;
+  if (!force && key === accessAccount && Date.now() - lastAccessCheck < 10_000) return;
+  accessAccount = key;
+  lastAccessCheck = Date.now();
+  subscriptionStatus.hidden = false;
+  subscriptionStatus.dataset.state = 'searching';
+  subscriptionStatus.textContent = 'Проверяем статус подписки…';
+  checkSubscriptionStatus.disabled = true;
+  const current = () => accessRequest?.key === key
+    && credentials()?.accountId === device?.accountId
+    && credentials()?.deviceSecret === device?.deviceSecret;
+  const pending = (async () => {
+    try {
+      const { access } = await request('/access/status', { clientType: 'monitor' });
+      if (!current()) return;
+      const expiry = Date.parse(access?.validUntil || '');
+      if (['active', 'device_limit'].includes(access?.state) && expiry >= Date.now()) {
+        subscriptionStatus.dataset.state = 'success';
+        subscriptionStatus.textContent = 'Оплата подтверждена. Подписка действует до ' + formatAccessDate(expiry) + '.';
+      } else {
+        subscriptionStatus.dataset.state = 'pending';
+        subscriptionStatus.textContent = access?.state === 'promo' || access?.state === 'trial'
+          ? 'Доступ есть, платная подписка не активна.'
+          : 'Активная платная подписка не найдена.';
+      }
+    } catch {
+      if (!current()) return;
+      subscriptionStatus.dataset.state = 'pending';
+      subscriptionStatus.textContent = 'Не удалось проверить статус подписки. Попробуйте ещё раз.';
+    } finally {
+      if (accessRequest?.pending === pending) {
+        accessRequest = undefined;
+        checkSubscriptionStatus.disabled = false;
+      }
+    }
+  })();
+  accessRequest = { key, pending };
+  return pending;
+}
+
+function clearSubscriptionStatus() {
+  accessRequest = undefined;
+  accessAccount = '';
+  subscriptionStatus.hidden = true;
+  checkSubscriptionStatus.hidden = true;
+  checkSubscriptionStatus.disabled = false;
+}
 function revealPaymentCheck() {
   clearTimeout(paymentRevealTimer);
   paymentCheck.hidden = true;
@@ -51,6 +114,7 @@ async function checkAccount() {
   try {
     const device = credentials();
     if (!device?.accountId || !device?.deviceSecret) {
+      clearSubscriptionStatus();
       accountStatus.textContent = 'Для подписки войдите через Google или Telegram в Мониторе.';
       loginLink.hidden = false;
       return;
@@ -64,6 +128,10 @@ async function checkAccount() {
       : 'Для подписки войдите через Google или Telegram в Мониторе.';
     loginLink.hidden = signedIn;
     accountKey = signedIn ? String(profile.email || 'tg:' + profile.telegramId) : '';
+    if (signedIn) {
+      checkSubscriptionStatus.hidden = false;
+      void refreshSubscription();
+    } else clearSubscriptionStatus();
     revealPaymentCheck();
     purchaseLink.hidden = !signedIn;
     paidButton.disabled = !signedIn;
@@ -72,6 +140,7 @@ async function checkAccount() {
     if (signedIn && localStorage.getItem(CLAIM_KEY)) { paymentCheck.hidden=false; await pollClaim(); }
   } catch {
     if (generation !== accountCheck) return;
+    clearSubscriptionStatus();
     loginLink.hidden = false;
     accountStatus.textContent = 'Не удалось проверить аккаунт. Обновите страницу перед оплатой.';
   }
@@ -91,7 +160,11 @@ async function request(path, body = {}) {
     device = { accountId: result.accountId, deviceSecret: result.deviceSecret };
     localStorage.setItem(DEVICE_KEY, JSON.stringify(device));
   }
-  const response = await fetch(`${API}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...device, ...body }) });
+  const response = await fetch(`${API}${path}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...device, ...body }),
+    ...(path === '/access/status' ? { signal: AbortSignal.timeout(10_000) } : {})
+  });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.error || `Ошибка ${response.status}`);
   return result;
@@ -115,7 +188,7 @@ function showClaim(claim) {
   }
   if (claim.status === 'confirmed') {
     const validUntil = claim.validUntil
-      ? new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(claim.validUntil))
+      ? formatAccessDate(claim.validUntil)
       : '';
     statusBox.textContent = validUntil
       ? `Оплата подтверждена. Доступ активен до ${validUntil}.`
@@ -124,6 +197,7 @@ function showClaim(claim) {
     detailsButton.hidden = true;
     detailsForm.hidden = true;
     clearTimeout(pollTimer);
+    void refreshSubscription();
     return;
   }
   if (claim.status === 'provisional') {
@@ -211,7 +285,14 @@ detailsForm.addEventListener('submit', async event => {
 });
 
 window.addEventListener('focus', checkAccount);
+checkSubscriptionStatus.addEventListener('click', () => {
+  if (signedIn) void refreshSubscription(true);
+  else void checkAccount();
+});
 window.addEventListener('storage', event => {
-  if (event.key === DEVICE_KEY || event.key === null) checkAccount();
+  if (event.key === DEVICE_KEY || event.key === null) {
+    clearSubscriptionStatus();
+    checkAccount();
+  }
 });
 checkAccount();

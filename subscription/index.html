@@ -27,6 +27,8 @@
         <p class="fine-print">Стоимость доступа — 1 250 ₸ в месяц до конца 2026 года (примерно 2,77 $); с 1 января 2027 года — 2 500 ₸ (примерно 5,55 $). Итоговую сумму и валюту проверьте в Boosty перед подтверждением: списание может быть в долларах США, а сумма в тенге зависит от курса и условий банка.</p>
         <p>Для оплаты доступа и синхронизации войдите через Google или Telegram. Используйте один аккаунт в расширении и Мониторе на всех устройствах.</p>
         <p id="subscriptionAccount" role="status">Проверяем аккаунт...</p>
+        <p id="subscriptionStatus" class="payment-status" role="status" hidden></p>
+        <button id="checkSubscriptionStatus" class="button secondary" type="button" hidden>Проверить статус</button>
         <a id="subscriptionLogin" class="button secondary" href="/monitor/" target="_blank" rel="noopener">Войти в Мониторе</a>
         <a id="purchaseLink" class="button primary" href="https://boosty.to/zhanat-arch/posts/66c13f5d-7d4f-4395-a77f-ecaa85749bdf" target="_blank" rel="noreferrer" hidden>Оплатить ноябрь — разовая покупка</a>
         <p class="fine-print">Безвозмездная <a href="/support/">поддержка проекта</a> оформляется отдельно и не предоставляет платный доступ. Ранее оформленные подписки Boosty автоматически не отменяются: проверьте автопродление в разделе <a href="https://boosty.to/app/settings/subscriptions" target="_blank" rel="noreferrer">«Мои подписки»</a>.</p>
@@ -41,7 +43,7 @@
       <p class="fine-print">После оплаты сохраните подтверждение Boosty. Подписка и доступ учитываются системой KEDEN44 независимо от платёжной площадки; до окончания открытого тестирования оплата не ограничивает доступ.</p>
     </section>
     <section class="payment-check" aria-labelledby="payment-check-title">
-      <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p><strong>После оплаты обязательно нажмите «Я оплатил», чтобы активировать доступ.</strong> Нажмите один раз: сначала мы автоматически найдём платёж. Данные покупки понадобятся только если сопоставить его не удастся.</p></div>
+      <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p>Если email в Boosty совпадает с подтверждённым email KEDEN44, оплата может подтвердиться автоматически. Если статус не обновился, нажмите «Я оплатил». Данные покупки понадобятся, только если платёж не найдётся.</p></div>
       <div class="payment-flow">
         <button id="paidBtn" class="button primary" type="button" disabled>Я оплатил</button>
         <p id="paymentStatus" class="payment-status" role="status">Проверка ещё не запускалась.</p>
@@ -59,6 +61,6 @@
     </section>
   </main>
   <footer data-site-footer><a href="/">KEDEN44</a> · <a href="/privacy.html">Конфиденциальность</a> · <a href="/help/">Справка</a></footer>
-  <script type="module" src="/subscription.js?v=20261030-payment-queue-24h"></script>
+  <script type="module" src="/subscription.js?v=20261113-payment-status"></script>
 <script defer src="/shared/footer.js"></script></body>
 </html>
