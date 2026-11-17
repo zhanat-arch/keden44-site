@@ -86,45 +86,26 @@ export function checkAudit(requirement,frro,catalog){
  const comparable=!!(frro&&requirement.complete&&frro.complete&&security!=null&&totalsRows.length===items.length&&items.length===frro.items.length&&items.every(i=>frro.items.some(f=>f.number===i.number))&&!findings.some(f=>['frro_total','frro_arithmetic'].includes(f.code)));
  const difference=security==null||totalDelta==null?null:diff(totalDelta,security);findings.sort((a,b)=>({error:0,warning:1,info:2}[a.level]-{error:0,warning:1,info:2}[b.level])||Number(dec(b.evidence.difference||'0').abs().minus(dec(a.evidence.difference||'0').abs()))||(a.item||0)-(b.item||0));
  const requirementChanges=new Map();
- const requirementAmounts=new Map();
  let requirementBreakdownComplete=requirement.complete&&items.length>0&&totalsRows.length===items.length
   &&!findings.some(f=>['ambiguous_payment','customs_total'].includes(f.code));
- let requirementAmountsComplete=requirementBreakdownComplete;
  for(const item of items){
   if(!item.total)continue;
   const included=item.payments.filter(p=>p.totalControl!=='excluded');
   if(!dec(item.delta).eq(sum(included.map(p=>p.delta))))requirementBreakdownComplete=false;
-  if(!['old','new'].every(side=>dec(item.total[side]).eq(sum(included.map(p=>p.amount[side])))))requirementAmountsComplete=false;
   for(const p of included)requirementChanges.set(p.code,dec(requirementChanges.get(p.code)||'0').plus(p.delta).toString());
-  for(const p of included)requirementAmounts.set(p.code,dec(requirementAmounts.get(p.code)||'0').plus(p.amount.new).toString());
  }
  for(const payment of summary){
-  const {code}=payment;
-  payment.payable=null;
-  if(!frro){
-   if(requirementAmountsComplete&&requirementAmounts.has(code))payment.payable=money(requirementAmounts.get(code));
-   continue;
-  }
-  if(!comparable)continue;
-  if(payment.conditionalZero){payment.payable='0.00';continue;}
-  const amounts=[];
-  for(const item of frro.items){
-   const rows=item.security.filter(s=>s.code===code);
-   const calculations=item.payments.filter(p=>p.code===code);
-   const required=items.find(i=>i.number===item.number)?.payments.some(p=>p.code===code);
-   if(rows.length)amounts.push(...rows.map(s=>s.new));
-   else if(hasZeroConditionalPair(calculations))amounts.push('0');
-   else if(required||calculations.length)amounts.push(null);
-  }
-  if(amounts.length&&amounts.every(amount=>amount!==null))payment.payable=money(sum(amounts));
+  const change=requirementChanges.get(payment.code);
+  payment.requirementChange=!requirementBreakdownComplete?null
+   :change!=null?money(change):payment.totalControl==='excluded'?'0.00':null;
+  payment.difference=payment.requirementChange==null||payment.security==null?null:diff(payment.requirementChange,payment.security);
  }
  return {dt:requirement.dt,requirement,frro,items,findings,paymentSummary:summary,paymentMethods:Object.fromEntries(Object.entries(SP).map(([k,v])=>[k,v[0]])),
   paymentBreakdown:{
    confirmed:Boolean(comparable&&difference==='0.00'&&!findings.some(f=>f.level==='error')),
    increases:summary.filter(p=>Number(p.security)>0),
-   requirementIncreases:requirementBreakdownComplete?summary
-    .filter(p=>Number(requirementChanges.get(p.code))>0)
-    .map(p=>({code:p.code,name:p.name,amount:money(requirementChanges.get(p.code))})):[],
+   requirementIncreases:summary.filter(p=>Number(p.requirementChange)>0)
+    .map(p=>({code:p.code,name:p.name,amount:p.requirementChange})),
    hasDecrease:securityRows.some(s=>dec(s.delta).lt('0'))||items.some(i=>Number(i.delta)<0||i.payments.some(p=>dec(p.delta).lt('0'))),
   },
   comparison:{requirement:totalDelta,frro:security,difference,comparable,status:!frro?'not_attached':!comparable?'incomplete':difference==='0.00'?'matched':'mismatched'},
