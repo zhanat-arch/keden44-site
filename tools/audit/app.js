@@ -4,8 +4,10 @@ let generation=0,detecting=false;
 const documents={requirement:null,frro:null};
 const ready=fetch('../payment-types.json').then(r=>r.json());
 const fmt=value=>value==null?'—':Number(value).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+const withDecrease=(value,decrease)=>fmt(value)+(Number(decrease)<0&&value!==decrease?' · в том числе уменьшения: '+fmt(decrease):'');
 lucide.createIcons();
-function row(target,values){const tr=document.createElement('tr');for(const v of values){const td=document.createElement('td');td.textContent=v??'—';tr.append(td);}$(target).append(tr);}
+function row(target,values){const tr=document.createElement('tr');for(const v of values){const td=document.createElement('td');td.textContent=v??'—';tr.append(td);}$(target).append(tr);return tr;}
+function paymentNote(cell,label,tone){const note=document.createElement('small');note.className='payment-kind '+tone;note.textContent=label;cell.append(note);}
 function show(data){
  result=data;$('result').hidden=false;$('dt').textContent='ДТ '+(data.dt||'номер не определён');
  for(const key of ['delta','increase','decrease','security'])$(key).textContent=fmt(data.totals[key]);
@@ -14,10 +16,29 @@ function show(data){
  $('comparisonStatus').textContent=comparisonLabels[data.comparison.status];$('comparisonStatus').className=data.comparison.status;
  $('basis').textContent=`Итоги графы 47 по товарам требования: до ${fmt(data.totals.old)} ₸, после ${fmt(data.totals.new)} ₸. С ФРРО сравнивается изменение, а не вся новая сумма начислений. Общая разница не является поручением на оплату или автоматический взаимозачёт.`;
  $('findings').replaceChildren();$('itemRows').replaceChildren();$('sourceRows').replaceChildren();$('limits').replaceChildren();$('paymentRows').replaceChildren();
- for(const p of data.paymentSummary)row('paymentRows',[p.code+' · '+p.name,fmt(p.delta),fmt(p.security),fmt(p.difference)]);
+ const {confirmed,increases,requirementIncreases,hasDecrease}=data.paymentBreakdown;
+ const due=data.frro?(confirmed?increases.map(p=>({...p,amount:p.security})):[]):requirementIncreases;
+ $('paymentDue').hidden=!due.length;
+ $('paymentDue').textContent=(data.frro?(hasDecrease?'Положительные изменения по ФРРО: ':'Доплата по ФРРО: '):'Доплата по требованию: ')
+  +due.map(p=>p.code+' · '+p.name+' — '+fmt(p.amount)+' ₸').join('; ')+'.';
+ $('paymentDecrease').hidden=!hasDecrease;
+ for(const p of data.paymentSummary){
+  const conditional=p.conditionalZero&&data.comparison.comparable;
+  const deltaNote=p.totalControl==='excluded'?' · не входит в контрольный итог':'';
+  const security=conditional?'Нет доплаты: условное начисление, УМ = 0':withDecrease(p.security,p.decreases.security);
+  const tr=row('paymentRows',[p.code+' · '+p.name,fmt(p.payable),withDecrease(p.delta,p.decreases.requirement)+deltaNote,security,fmt(p.difference)]);
+  const cell=tr.cells[1];
+  const conditionalMethod=p.sp.some(sp=>['УН','УР'].includes(sp));
+  if(conditionalMethod){
+   cell.classList.add('payment-conditional');
+   paymentNote(cell,conditional?'Условное начисление · УМ = 0':'Условное начисление по ФРРО','payment-conditional');
+  }else if(p.offset!=null||p.family==='vat')cell.classList.add('payment-vat');
+  if(p.offset!=null)paymentNote(cell,'Метод зачёта (ЗН): '+fmt(p.offset)+' ₸'+(data.frro.complete?'':' · предварительно'),'payment-vat');
+  else if(p.family==='vat')paymentNote(cell,'НДС','payment-vat');
+ }
  const controlled=data.paymentSummary.filter(p=>p.totalControl==='included').map(p=>p.name);
  if(controlled.length)$('basis').textContent='По контрольному итогу графы 47 изменение относится к платежу: '+controlled.join(', ')+'.';
- const conditional=data.paymentSummary.filter(p=>p.sp.some(sp=>['УН','УР'].includes(sp)));
+ const conditional=data.paymentSummary.filter(p=>!p.conditionalZero&&p.sp.some(sp=>['УН','УР'].includes(sp)));
  $('benefits').hidden=!conditional.length;
  $('benefits').textContent='Льготы / условное начисление по ФРРО: '+conditional.map(p=>p.name+' ('+p.sp.filter(sp=>['УН','УР'].includes(sp)).join(', ')+')').join('; ')+'.';
  const labels={requirement:'Требование',frro:'ФРРО',difference:'Разница',old:'До',new:'После',page:'Страница',requirementRow:'№ строки требования',requirementPage:'Страница требования',frroPage:'Страница ФРРО',frroSequence:'№ п/п записи ФРРО',requirementDelta:'Изменение по требованию',securityDelta:'Обеспечение',reported:'Указано',computed:'Посчитано',dt:'ДТ',otherItems:'Номера товаров',stated:'Итог документа'};
@@ -72,5 +93,5 @@ $('auditForm').addEventListener('submit',async event=>{
 });
 for(const tab of document.querySelectorAll('[data-view]'))tab.addEventListener('click',()=>{for(const t of document.querySelectorAll('[data-view]')){t.classList.toggle('selected',t===tab);t.setAttribute('aria-selected',String(t===tab));$(t.dataset.view).hidden=t!==tab;}});
 import {detect} from '../pdf-core.js';
-import {readRequirement,readFrro,checkAudit} from '../audit-engine.js';
+import {readRequirement,readFrro,checkAudit} from '../audit-engine.js?v=20261117-payment-payable';
 import {requireAccess,recordReport} from '../access.js?v=offline-20261104';

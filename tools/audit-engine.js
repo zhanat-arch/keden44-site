@@ -35,6 +35,11 @@ export async function readFrro(file,progress=()=>{}){
  if(!items.length)throw Error('Не распознаны товары расчёта обеспечения ФРРО.');
  return {kind:'frro',dt,total,expected,items,complete:expected!=null&&items.length===expected&&new Set(items.map(i=>i.number)).size===expected};
 }
+function hasZeroConditionalPair(payments) {
+ return payments.length===2
+  && payments.some(p=>['УН','УР'].includes(p.sp)&&dec(p.amount)?.gt('0'))
+  && payments.some(p=>p.sp==='УМ'&&dec(p.amount)?.eq('0'));
+}
 export function checkAudit(requirement,frro,catalog){
  if(frro&&(!requirement.dt||requirement.dt!==frro.dt))throw Error('Номера ДТ в требовании и ФРРО не совпадают. Документы нельзя объединять.');
  const findings=[],items=[],byItem=new Map();const note=(level,code,message,item=null,evidence={})=>findings.push({level,code,message,item,evidence});
@@ -57,19 +62,71 @@ export function checkAudit(requirement,frro,catalog){
  }
  const common=(byItem.get(null)||[]).find(r=>r.graph==='12'),customs=items.filter(i=>i.customs);
  if(common&&requirement.complete){const a=diff(common.new,common.old),b=money(sum(customs.map(i=>dec(i.customs.new).minus(i.customs.old))));if(a!==b)note('error','customs_total','Изменение общей стоимости не равно сумме изменений товаров.',null,{reported:a,computed:b});}
- if(frro){const actual=money(sum(frro.items.flatMap(i=>i.security.map(s=>s.delta))));if(frro.total==null||actual!==frro.total)note('error','frro_total','Итог ФРРО не подтверждён суммой обеспечения товаров.',null,{computed:actual,stated:frro.total});
+ const securityRows=frro?.items.flatMap(i=>i.security)||[];
+ if(frro){const actual=money(sum(securityRows.map(s=>s.delta)));if(frro.total==null||actual!==frro.total)note('error','frro_total','Итог ФРРО не подтверждён суммой обеспечения товаров.',null,{computed:actual,stated:frro.total});
   for(const i of frro.items){for(const s of i.security)if(diff(s.new,s.old)!==s.delta)note('error','frro_arithmetic','Изменение обеспечения не равно новой сумме минус предыдущая.',i.number);
    for(const p of i.payments){const rate=p.rate.match(/^(-?\d+(?:[.,]\d+)?)\s*%$/),base=dec(p.base);if(rate&&base){const computed=money(base.times(dec(rate[1])).div('100'));if(computed!==money(dec(p.amount)))note('error','frro_payment_arithmetic',`Платёж ${p.code} ФРРО: сумма не равна базе × ставке.`,i.number,{computed,stated:money(dec(p.amount))});}}
   }
  }
- const summary=[];for(const code of [...new Set(items.flatMap(i=>i.payments.map(p=>p.code)))].sort()){
-  const related=items.flatMap(i=>i.payments.filter(p=>p.code===code)),secured=frro?.items.flatMap(i=>i.security.filter(s=>s.code===code))||[],delta=money(sum(related.map(p=>p.delta))),security=secured.length?money(sum(secured.map(s=>s.delta))):null,controls=new Set(related.map(p=>p.totalControl));
-  summary.push({code,name:catalog.codes[code]?.name||'Неизвестный вид платежа',old:money(sum(related.map(p=>p.amount.old))),new:money(sum(related.map(p=>p.amount.new))),delta,security,difference:security==null?null:diff(delta,security),sp:[...new Set(items.flatMap(i=>i.sp.filter(p=>p.code===code).map(p=>p.sp)))].sort(),totalControl:controls.size===1?[...controls][0]:'mixed'});
+ const summary=[];for(const code of [...new Set([...items.flatMap(i=>i.payments.map(p=>p.code)),...securityRows.map(s=>s.code)])].sort()){
+  const related=items.flatMap(i=>i.payments.filter(p=>p.code===code)),secured=securityRows.filter(s=>s.code===code),delta=related.length?money(sum(related.map(p=>p.delta))):null,security=secured.length?money(sum(secured.map(s=>s.delta))):null,controls=new Set(related.map(p=>p.totalControl));
+  const decreases={
+   requirement:money(sum(related.filter(p=>dec(p.delta).lt('0')).map(p=>p.delta))),
+   security:money(sum(secured.filter(s=>dec(s.delta).lt('0')).map(s=>s.delta))),
+  };
+  const relevant=items.filter(i=>i.payments.some(p=>p.code===code)||i.sp.some(p=>p.code===code));
+  const conditionalZero=Boolean(frro?.complete&&relevant.length&&secured.every(s=>dec(s.delta).eq('0'))
+   && relevant.every(i=>hasZeroConditionalPair(i.sp.filter(p=>p.code===code)))
+   && frro.items.every(i=>!i.payments.some(p=>p.code===code)||hasZeroConditionalPair(i.payments.filter(p=>p.code===code))));
+  const methods=frro?.items.flatMap(i=>i.payments.filter(p=>p.code===code))||[];
+  const offset=methods.filter(p=>p.sp==='ЗН');
+  summary.push({code,name:catalog.codes[code]?.name||'Неизвестный вид платежа',family:catalog.codes[code]?.family,old:money(sum(related.map(p=>p.amount.old))),new:money(sum(related.map(p=>p.amount.new))),delta,security,difference:security==null||delta==null?null:diff(delta,security),sp:[...new Set(methods.map(p=>p.sp))].sort(),offset:offset.length?money(sum(offset.map(p=>p.amount))):null,totalControl:controls.size===1?[...controls][0]:'mixed',conditionalZero,decreases});
  }
  const totalsRows=items.filter(i=>i.total),totalDelta=totalsRows.length?money(sum(totalsRows.map(i=>i.delta))):null,security=frro?.total??null;
  const comparable=!!(frro&&requirement.complete&&frro.complete&&security!=null&&totalsRows.length===items.length&&items.length===frro.items.length&&items.every(i=>frro.items.some(f=>f.number===i.number))&&!findings.some(f=>['frro_total','frro_arithmetic'].includes(f.code)));
  const difference=security==null||totalDelta==null?null:diff(totalDelta,security);findings.sort((a,b)=>({error:0,warning:1,info:2}[a.level]-{error:0,warning:1,info:2}[b.level])||Number(dec(b.evidence.difference||'0').abs().minus(dec(a.evidence.difference||'0').abs()))||(a.item||0)-(b.item||0));
+ const requirementChanges=new Map();
+ const requirementAmounts=new Map();
+ let requirementBreakdownComplete=requirement.complete&&items.length>0&&totalsRows.length===items.length
+  &&!findings.some(f=>['ambiguous_payment','customs_total'].includes(f.code));
+ let requirementAmountsComplete=requirementBreakdownComplete;
+ for(const item of items){
+  if(!item.total)continue;
+  const included=item.payments.filter(p=>p.totalControl!=='excluded');
+  if(!dec(item.delta).eq(sum(included.map(p=>p.delta))))requirementBreakdownComplete=false;
+  if(!['old','new'].every(side=>dec(item.total[side]).eq(sum(included.map(p=>p.amount[side])))))requirementAmountsComplete=false;
+  for(const p of included)requirementChanges.set(p.code,dec(requirementChanges.get(p.code)||'0').plus(p.delta).toString());
+  for(const p of included)requirementAmounts.set(p.code,dec(requirementAmounts.get(p.code)||'0').plus(p.amount.new).toString());
+ }
+ for(const payment of summary){
+  const {code}=payment;
+  payment.payable=null;
+  if(!frro){
+   if(requirementAmountsComplete&&requirementAmounts.has(code))payment.payable=money(requirementAmounts.get(code));
+   continue;
+  }
+  if(!comparable)continue;
+  if(payment.conditionalZero){payment.payable='0.00';continue;}
+  const amounts=[];
+  for(const item of frro.items){
+   const rows=item.security.filter(s=>s.code===code);
+   const calculations=item.payments.filter(p=>p.code===code);
+   const required=items.find(i=>i.number===item.number)?.payments.some(p=>p.code===code);
+   if(rows.length)amounts.push(...rows.map(s=>s.new));
+   else if(hasZeroConditionalPair(calculations))amounts.push('0');
+   else if(required||calculations.length)amounts.push(null);
+  }
+  if(amounts.length&&amounts.every(amount=>amount!==null))payment.payable=money(sum(amounts));
+ }
  return {dt:requirement.dt,requirement,frro,items,findings,paymentSummary:summary,paymentMethods:Object.fromEntries(Object.entries(SP).map(([k,v])=>[k,v[0]])),
+  paymentBreakdown:{
+   confirmed:Boolean(comparable&&difference==='0.00'&&!findings.some(f=>f.level==='error')),
+   increases:summary.filter(p=>Number(p.security)>0),
+   requirementIncreases:requirementBreakdownComplete?summary
+    .filter(p=>Number(requirementChanges.get(p.code))>0)
+    .map(p=>({code:p.code,name:p.name,amount:money(requirementChanges.get(p.code))})):[],
+   hasDecrease:securityRows.some(s=>dec(s.delta).lt('0'))||items.some(i=>Number(i.delta)<0||i.payments.some(p=>dec(p.delta).lt('0'))),
+  },
   comparison:{requirement:totalDelta,frro:security,difference,comparable,status:!frro?'not_attached':!comparable?'incomplete':difference==='0.00'?'matched':'mismatched'},
   totals:{old:totalsRows.length?money(sum(totalsRows.map(i=>i.total.old))):null,new:totalsRows.length?money(sum(totalsRows.map(i=>i.total.new))):null,delta:totalDelta,security,increase:totalsRows.length?money(sum(totalsRows.map(i=>dec(i.delta).gt('0')?i.delta:'0'))):null,decrease:totalsRows.length?money(sum(totalsRows.map(i=>dec(i.delta).lt('0')?i.delta:'0'))):null},
   limits:['Сверка документов не подтверждает фактическую оплату или остаток на лицевом счёте.','Суммы изменений не являются автоматическим взаимозачётом.','Правильность ставок и оснований льгот требует отдельной проверки.','Поддерживается текстовая числовая форма требования KEDEN.']};
