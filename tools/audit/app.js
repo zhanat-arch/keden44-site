@@ -16,10 +16,9 @@ function show(data){
  $('comparisonStatus').textContent=comparisonLabels[data.comparison.status];$('comparisonStatus').className=data.comparison.status;
  $('basis').textContent='С ФРРО сравнивается изменение по контрольным строкам графы 47, а не полная сумма начислений. Общая разница не является поручением на оплату или автоматическим взаимозачётом.';
  $('findings').replaceChildren();$('itemRows').replaceChildren();$('sourceRows').replaceChildren();$('limits').replaceChildren();$('paymentRows').replaceChildren();
- const {confirmed,increases,requirementIncreases,hasDecrease}=data.paymentBreakdown;
- const due=data.frro?(confirmed?increases.map(p=>({...p,amount:p.security})):[]):requirementIncreases;
+ const {requirementIncreases:due,hasDecrease}=data.paymentBreakdown;
  $('paymentDue').hidden=!due.length;
- $('paymentDue').textContent=(data.frro?(hasDecrease?'Положительные изменения обеспечения по ФРРО: ':'Обеспечение по ФРРО: '):'Доплата по требованию: ')
+ $('paymentDue').textContent='Доплата по требованию: '
   +due.map(p=>p.code+' · '+p.name+' — '+fmt(p.amount)+' ₸').join('; ')+'.';
  $('paymentDecrease').hidden=!hasDecrease;
  for(const p of data.paymentSummary){
