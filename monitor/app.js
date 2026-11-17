@@ -15,9 +15,9 @@ import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPag
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
-import { createTelegramClient } from './modules/telegram/client.js?v=offline-20261104';
+import { createTelegramClient } from './modules/telegram/client.js?v=20261117-share-delta';
 import { installTelegramLogin } from './modules/telegram/login.js';
-import { createCardSharing } from './modules/ui/card-sharing.js?v=4';
+import { createCardSharing } from './modules/ui/card-sharing.js?v=5';
 import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
 
 (() => {
@@ -109,9 +109,11 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
     let cloudSyncTimer;
     let googleConnected = false;
     let googleCloudLoaded = false;
+    let cloudBaseline = null;
+    let cloudWrite = null;
     installSharedCards({client: telegram, signedIn: () => googleConnected});
-    const shareCard = createCardSharing({client: telegram, sync: pushCloud,
-      signedIn: () => googleConnected && googleCloudLoaded,
+    const shareCard = createCardSharing({client: telegram,
+      signedIn: () => googleConnected,
       status: message => {els.line.textContent = message;}});
     let telegramConnected = false;
     let serverWatchCount = 0;
@@ -1456,9 +1458,18 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
       }
       records = normalizeStoredRecords([...merged.values()]);
     }
+    const fingerprint = value => JSON.stringify(value, (_, value) => value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.keys(value).sort().map(key=>[key,value[key]])) : value);
+    function cloudSnapshot(cloud) {
+      return {
+        records: new Map((cloud.records||[]).map(record=>[record.id,fingerprint(record)])),
+        settings: new Map(Object.entries(cloud.settings||{}).map(([key,value])=>[key,fingerprint(value)])),
+      };
+    }
     async function pullCloudAndMerge() {
       const result = await telegram.cloudPull();
       const cloud = result.cloud || {};
+      cloudBaseline = cloudSnapshot(cloud);
       applyRecordDeletions(cloud.settings?.deletedRecords);
       mergeCloudRecords(Array.isArray(cloud.records) ? cloud.records : []);
       if (cloud.settings && typeof cloud.settings === 'object' && Object.keys(cloud.settings).length) {
@@ -1486,21 +1497,38 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
       return applyKedenNotifications(result.items || [], { share: false, notify: false });
     }
     async function pushCloud() {
-      if (!googleConnected || !googleCloudLoaded) return;
-      const result = await telegram.cloudPush(persistentRecords(), settings);
-      const previous = JSON.stringify(persistentRecords());
-      applyRecordDeletions(result.deletedRecords);
-      if (previous !== JSON.stringify(persistentRecords())) {
-        store?.setItem(KEY, JSON.stringify(persistentRecords().map(forLegacyBridge)));
-        render();
-      }
+      if (!googleConnected || !googleCloudLoaded || !cloudBaseline) return;
+      if (cloudWrite) {await cloudWrite;return pushCloud();}
+      const baseline=cloudBaseline;
+      const changed=persistentRecords().map(record=>[record,fingerprint(record)]).filter(([record,value])=>baseline.records.get(record.id)!==value);
+      const changedSettings=Object.fromEntries(Object.entries(settings).filter(([key,value])=>baseline.settings.get(key)!==fingerprint(value)));
+      if(!changed.length&&!Object.keys(changedSettings).length)return;
+      const settingsSent=Object.entries(changedSettings).map(([key,value])=>[key,fingerprint(value)]);
+      cloudWrite=(async()=>{
+        const result=await telegram.cloudPatch(changed.map(([record])=>record),changedSettings);
+        if(cloudBaseline!==baseline || !googleConnected || !googleCloudLoaded)return;
+        for(const [record,value] of changed)baseline.records.set(record.id,value);
+        for(const [key,value] of settingsSent)baseline.settings.set(key,value);
+        cloudBaseline={...baseline};
+        const previous=JSON.stringify(persistentRecords());
+        applyRecordDeletions(result.deletedRecords);
+        if(previous!==JSON.stringify(persistentRecords())){
+          store?.setItem(KEY,JSON.stringify(persistentRecords().map(forLegacyBridge)));
+          render();
+        }
+      })();
+      try{await cloudWrite;}finally{cloudWrite=null;}
     }
     let cloudReadRefreshRunning = false;
     async function refreshCloudReads() {
       if (!googleConnected || !googleCloudLoaded || cloudReadRefreshRunning) return;
       cloudReadRefreshRunning = true;
       try {
+        const baseline=cloudBaseline, pending=cloudWrite;
         const result = await telegram.cloudPull();
+        if(!pending&&!cloudWrite&&baseline&&baseline===cloudBaseline) {
+          cloudBaseline={...baseline,records:cloudSnapshot(result.cloud||{}).records};
+        }
         const previous = JSON.stringify(persistentRecords());
         applyRecordDeletions(result.cloud?.settings?.deletedRecords);
         mergeCloudRecords(loadRecords());

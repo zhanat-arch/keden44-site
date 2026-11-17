@@ -1,4 +1,4 @@
-export function createCardSharing({client, sync, signedIn, status}) {
+export function createCardSharing({client, signedIn, status}) {
   const dialog = document.createElement('dialog');
   dialog.className = 'cardSharingDialog';
   dialog.innerHTML = '<div class="dh"><h2>Доступ к карточке</h2><button type="button" data-close aria-label="Закрыть">×</button></div>'
@@ -8,7 +8,7 @@ export function createCardSharing({client, sync, signedIn, status}) {
     + '<p data-status role="status"></p><div class="da"><button type="button" data-copy hidden>Копировать ссылку</button><button type="button" data-revoke hidden>Прекратить доступ</button><button type="button" data-create class="primary">Включить доступ по ссылке</button></div>';
   document.body.append(dialog);
   const find = selector => dialog.querySelector(selector);
-  let recordId, busy = false, active = false;
+  let recordId, cardRecord, busy = false, active = false;
   const options = () => ({declarant: find('[data-declarant]').checked, notifications: find('[data-notifications]').checked});
   function show(value) {
     active = value.enabled === true;
@@ -26,14 +26,31 @@ export function createCardSharing({client, sync, signedIn, status}) {
     dialog.querySelectorAll('.da button').forEach(node => {node.disabled = true;});
     dialog.querySelectorAll('.cardShareOptions input').forEach(node => {node.disabled = true;});
     find('[data-status]').textContent = 'Проверяю доступ…';
-    try {await task();} catch (error) {find('[data-status]').textContent = error.message;}
+    try {await task();} catch (error) {
+      find('[data-status]').textContent = ({
+        paid_subscription_required: 'Создание ссылок доступно с активной оплаченной подпиской KEDEN44.',
+        share_limit: 'Достигнут лимит: 60 новых ссылок в час на аккаунт.',
+        rate_limited: 'Слишком много запросов. Повторите через минуту.'
+      })[error.code] || error.message;
+    }
     finally {busy = false; dialog.querySelectorAll('.da button,.cardShareOptions input').forEach(node => {node.disabled = false;});}
   }
   find('[data-close]').onclick = () => {if (!busy) dialog.close();};
   dialog.addEventListener('cancel', event => {if (busy) event.preventDefault();});
   find('[data-create]').onclick = () => run(async () => {
-    await sync();
-    show(await client.createCardShare(recordId, options()));
+    const selected = options();
+    let share;
+    try {share = await client.createCardShare(recordId, selected);}
+    catch (error) {
+      if (error.code !== 'share_card_required') throw error;
+      const card = Object.fromEntries(['dtNumber','kedenUrl','regime','status','goods','releaseDate','checkedAt','updatedAt',
+        'conditionalExtendedUntil','lastKedenNotificationAt','onInspection'].map(key => [key,cardRecord[key]]));
+      if (selected.declarant) card.declarant = String(cardRecord.declarant || '').slice(0,1200);
+      if (selected.notifications) card.history = (cardRecord.history || [])
+        .filter(line => typeof line === 'string' && /уведомление KEDEN:/i.test(line)).slice(-100).map(line=>line.slice(0,2500));
+      share = await client.createCardShare(recordId, selected, card);
+    }
+    show(share);
     find('[data-status]').textContent = 'Доступ включён. Ссылка обновляется по данным вашей синхронизации.';
   });
   for (const checkbox of dialog.querySelectorAll('.cardShareOptions input')) checkbox.addEventListener('change', () => {
@@ -53,8 +70,10 @@ export function createCardSharing({client, sync, signedIn, status}) {
     catch {find('[data-link]').focus(); find('[data-link]').select(); find('[data-status]').textContent = 'Скопируйте выделенную ссылку';}
   };
   return async record => {
-    if (!signedIn()) {status('Для общего доступа войдите через Google и дождитесь синхронизации.'); return;}
+    if (!signedIn()) {status('Для общего доступа войдите в аккаунт KEDEN44.'); return;}
+    if (record.sharedAccess || record.transientDuplicate) {status('Можно поделиться только своей карточкой.'); return;}
     recordId = record.id;
+    cardRecord = record;
     show({enabled: false});
     find('[data-number]').textContent = record.dtNumber;
     dialog.showModal();
