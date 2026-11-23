@@ -13,7 +13,7 @@ export function createTelegramClient({
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
-      ...(['/access/status','/access/usage'].includes(path)?{signal:AbortSignal.timeout(10000)}:{})
+      signal: AbortSignal.timeout(path.startsWith('/cloud/') ? 35000 : 15000)
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok) {
@@ -50,7 +50,7 @@ export function createTelegramClient({
   }
 
   return {
-    connection: () => credentials ? authenticated('/connection') : Promise.resolve({ ok: true, linked: false }),
+    connection: () => loadCredentials(storage) ? authenticated('/connection') : Promise.resolve({ ok: true, linked: false }),
     createLink: () => authenticated('/link'),
     sync: watches => credentials ? authenticated('/sync', { watches }) : Promise.resolve({ ok: true, skipped: true, watchCount: 0 }),
     googleAuth: credential => {clearPermit(storage);return authenticated('/auth/google', { credential });},

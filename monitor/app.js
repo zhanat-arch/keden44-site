@@ -15,7 +15,7 @@ import { parseDeclarationReferences, parseDeclarationSummary, parseStandardDtPag
 import { splitDeclarationNumber, splitOrganizationName } from './modules/core/privacy.js';
 import { deleteFirstPagePreview, deleteSupportDocument, getFirstPagePreview, getSupportDocument, saveFirstPagePreview, saveSupportDocument } from './modules/storage/previews.js';
 import { recordMatchesQuery } from './modules/core/search.js';
-import { createTelegramClient } from './modules/telegram/client.js?v=20261117-share-delta';
+import { createTelegramClient } from './modules/telegram/client.js?v=20261123-connection-state';
 import { installTelegramLogin } from './modules/telegram/login.js';
 import { createCardSharing } from './modules/ui/card-sharing.js?v=5';
 import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
@@ -1421,8 +1421,8 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
       els.googleSignIn.replaceChildren();
       const status = document.createElement('span');
       status.className = 'googleAccount';
-      status.textContent = 'Синхронизация: ' + (profile?.email || (profile?.telegramId ? 'Telegram ID ' + profile.telegramId : 'Google подключён'));
-      status.title = 'Записи этого монитора синхронизируются между вашими устройствами';
+      status.textContent = 'Аккаунт: ' + (profile?.email || (profile?.telegramId ? 'Telegram ID ' + profile.telegramId : 'Google подключён'));
+      status.title = 'Аккаунт подключён; состояние фоновой проверки указано отдельно';
       els.googleSignIn.append(status);
       updateBackgroundSetup();
     }
@@ -1573,10 +1573,16 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
         renderGoogleProfile(result.profile);
         await refreshAccessState();
         await pullCloudAndMerge();
+        await refreshTelegramStatus();
         if (telegramConnected) await syncTelegramWatches();
       } catch (error) {
-        els.line.textContent = 'Вход Google не выполнен: ' + error.message;
+        els.line.textContent = googleConnected ? cloudSyncError(error) : 'Вход Google не выполнен: ' + error.message;
       }
+    }
+    function cloudSyncError(error) {
+      if (error.access?.state === 'device_limit') return 'Аккаунт подключён, но превышен лимит устройств. Облачная синхронизация недоступна на этом устройстве.';
+      if (error.status === 402 || error.status === 403) return 'Аккаунт подключён, но сервер не разрешил облачную синхронизацию для этого устройства. Проверьте доступ аккаунта.';
+      return 'Аккаунт подключён. Синхронизация временно недоступна, повторим автоматически: ' + (error.message || 'ошибка сети');
     }
     async function initializeGoogleSignIn(attempt = 0) {
       if (!els.googleSignIn || googleConnected) return;
@@ -1611,8 +1617,13 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
         if (result.identity || result.google) {
           googleConnected = true;
           renderGoogleProfile(result.identity || result.google);
-          await refreshAccessState();
-          if (!googleCloudLoaded) await pullCloudAndMerge();
+          try {
+            await refreshAccessState();
+            if (!googleCloudLoaded) await pullCloudAndMerge();
+          } catch (error) {
+            showSyncState('error', cloudSyncError(error));
+            els.line.textContent = cloudSyncError(error);
+          }
         }
         updateBackgroundSetup();
         return result.linked;
