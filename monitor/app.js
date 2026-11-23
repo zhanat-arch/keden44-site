@@ -1,5 +1,5 @@
 import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarationSectionFromDtNumber, esc, isCleared, isConditionalRelease, isReleased, statusKind, dtFromFileName, isRecentRelease, needsAttention, parseReleaseDate, submissionDateFromDtNumber } from './modules/core/dt.js?v=2';
-import { latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js';
+import { releaseStatusFromNotification, latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js?v=20261123';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { normalizeRegime } from './modules/core/regime.js';
 import { isRecordDeleted, mergeRecordDeletions } from './modules/core/deletions.js';
@@ -263,6 +263,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
     window.addEventListener('storage', event => {
       if (event.key === SETTINGS_KEY) {
         try { applyRecordDeletions(JSON.parse(event.newValue || '{}').deletedRecords); render(); } catch {}
+        scheduleCloudSync();
         return;
       }
       if (event.key !== KEY || !event.newValue) return;
@@ -271,6 +272,8 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
         if (!Array.isArray(incoming)) return;
         records = normalizeStoredRecords(incoming.filter(item => !isRecordDeleted(item, settings.deletedRecords)).map(item => normalizeExtensionGoods(item, records.find(previous => previous.id === item.id))));
         render();
+        scheduleTelegramSync();
+        scheduleCloudSync();
       } catch (error) {
         console.error('Failed to synchronize monitor tabs', error);
       }
@@ -471,6 +474,26 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
             recordsTouched = true;
           }
           const known = new Set(record.kedenNotificationIds || []);
+          const releaseStatus = releaseStatusFromNotification(item.text);
+          const statusEventAt = notificationTimestamp(item.deliveredAt);
+          const lastStatusAt = notificationTimestamp(record.notificationStatusAt);
+          const checkedAt = notificationTimestamp(record.checkedAt);
+          // Repair previously imported notices without repeating notifications or
+          // overriding a newer QR check or a later status event.
+          if (releaseStatus && Number.isFinite(statusEventAt)
+            && (!Number.isFinite(lastStatusAt) || statusEventAt >= lastStatusAt)
+            && (!known.has(item.id) || !Number.isFinite(checkedAt) || statusEventAt >= checkedAt)) {
+            if (record.status !== releaseStatus) {
+              record.status = releaseStatus;
+              record.updatedAt = new Date().toISOString();
+              recordsTouched = true;
+            }
+            if (record.notificationStatusAt !== item.deliveredAt) {
+              record.notificationStatusAt = item.deliveredAt;
+              recordsTouched = true;
+            }
+            if (!record.releaseDate) record.releaseDate = new Date(statusEventAt).toLocaleString('ru-RU');
+          }
           if (known.has(item.id)) continue;
           known.add(item.id);
           record.kedenNotificationIds = [...known].slice(-100);
@@ -481,13 +504,6 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
           if (/дополнительн(?:ый|ого).*запрос|запрос.*(?:документ|сведени)/i.test(notificationText)) {
             record.requestWorkflow = 'new';
             record.requestNotificationId = item.id;
-          }
-          if (/\bДТ\s+\d{5}\/\d{6}\/\d{7}\s+условно выпущен[ао]?/i.test(notificationText)) {
-            record.status = 'Условно выпущена';
-            if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
-          } else if (/\bДТ\s+\d{5}\/\d{6}\/\d{7}\s+выпущен[ао]?/i.test(notificationText)) {
-            record.status = 'Выпущена';
-            if (!record.releaseDate && !Number.isNaN(delivered)) record.releaseDate = new Date(delivered).toLocaleDateString('ru-RU');
           }
           if (isNew && !(record.kedenReadNotificationIds || []).includes(item.id)) {
             if (!(record.kedenReadNotificationIds || []).includes(item.id)) record.kedenUnreadNotificationIds = [...new Set([...(record.kedenUnreadNotificationIds || []), item.id])].slice(-100);
@@ -1538,12 +1554,16 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
         render();
       } finally { cloudReadRefreshRunning = false; }
     }
-    function scheduleCloudSync() {
+    let cloudRetryDelay = 15_000;
+    function scheduleCloudSync(delay = 1200) {
       if (!googleConnected || !googleCloudLoaded) return;
       clearTimeout(cloudSyncTimer);
-      cloudSyncTimer = setTimeout(() => pushCloud().catch(error => {
+      cloudSyncTimer = setTimeout(() => pushCloud().then(() => { cloudRetryDelay = 15_000; }).catch(error => {
         showSyncState('error', 'Изменения сохранены на устройстве, но не отправлены на сервер: ' + error.message);
-      }), 1200);
+        const retry = cloudRetryDelay;
+        cloudRetryDelay = Math.min(cloudRetryDelay * 2, 300_000);
+        scheduleCloudSync(retry);
+      }), delay);
     }
     async function handleGoogleCredential(response) {
       try {
@@ -1921,6 +1941,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
       lastResumeCheck = Date.now();
       void checkDue(true, true);
       refreshCloudReads().catch(() => {});
+      scheduleCloudSync();
       checkConditionalReminders();
       if (googleConnected && settings.helpCoworkers) pullCoworkerNotifications().catch(() => {});
     }

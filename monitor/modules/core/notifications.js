@@ -3,6 +3,15 @@ function released(status = '') {
   return value.includes('выпущ') || value.includes('очищ');
 }
 
+export function releaseStatusFromNotification(value = '') {
+  const text = String(value).normalize('NFC').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const match = text.match(/(?:^|[^\p{L}\p{N}])(?:ДТ|декларация)\s*(?:№\s*)?(?:\d{5}\s*\/\s*\d{6}\s*\/\s*\d{7}\s*)?[:—-]?\s*((?:условно\s+)?выпущен[аоы]?|условный\s+выпуск|выпуск\s+разреш[её]н)(?=$|[^\p{L}])/iu);
+  if (!match) return '';
+  if (/условн/iu.test(match[1])) return 'Условно выпущена';
+  if (/под\s+обеспечени/iu.test(text.slice(match.index + match[0].length))) return 'Выпущена под обеспечение';
+  return 'Выпущена';
+}
+
 export function notificationTimestamp(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
   if (value instanceof Date) return value.getTime();
