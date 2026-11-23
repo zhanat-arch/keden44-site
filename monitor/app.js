@@ -680,16 +680,29 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
         const fingerprint = JSON.stringify(record);
         const old = previous.get(record.id);
         const node = old && old._recordFingerprint === fingerprint ? old : card(record);
+        let noteDraft = null;
         node._recordId = record.id;
         node._recordFingerprint = fingerprint;
         if (old && node !== old) {
           const open = [...old.querySelectorAll('details')].map(detail => detail.open);
           node.querySelectorAll('details').forEach((detail, i) => { detail.open = !!open[i]; });
+          const oldEditor = old.querySelector('[data-note-editor]');
+          const oldInput = oldEditor?.querySelector('input');
+          if (oldEditor && !oldEditor.hidden && oldInput) {
+            noteDraft = {value:oldInput.value,focused:document.activeElement===oldInput,start:oldInput.selectionStart,end:oldInput.selectionEnd};
+            openCardNoteEditor(node, record);
+            node.querySelector('[data-note-editor] input').value = noteDraft.value;
+          }
         }
         const clearButton = node.querySelector('[data-action="clear"]');
         if (clearButton) clearButton.hidden = !record.changed;
         retained.add(node);
         if (container.children[index] !== node) container.insertBefore(node, container.children[index] || null);
+        if (noteDraft?.focused) {
+          const input = node.querySelector('[data-note-editor] input');
+          input.focus({preventScroll:true});
+          input.setSelectionRange(noteDraft.start,noteDraft.end);
+        }
       });
       [...container.children].forEach(node => { if (!retained.has(node)) node.remove(); });
     }
@@ -872,26 +885,33 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
       const input = editor?.querySelector('input');
       const saveButton = editor?.querySelector('[data-note-save]');
       if (!editor || !input || !saveButton) return;
+      const recordId = record.id;
+      const current = records.find(item=>item.id===recordId);
+      if (!current) return;
+      input.value = String(current.specialistNote || '');
       editor.hidden = false;
       input.focus();
       input.select();
       const save = () => {
         const value = input.value.trim();
-        if (value === String(record.specialistNote || '')) {
+        const current = records.find(item=>item.id===recordId);
+        if (!current) {els.line.textContent='ДТ уже удалена. Заметка не сохранена.';return;}
+        if (value === String(current.specialistNote || '')) {
           editor.hidden = true;
           return;
         }
-        record.specialistNote = value;
-        record.updatedAt = new Date().toISOString();
-        record.history = [...(record.history || []), now() + (value ? ': заметка обновлена' : ': заметка удалена')];
-        saveRecords();
+        current.specialistNote = value;
+        current.updatedAt = new Date().toISOString();
+        current.history = [...(current.history || []), now() + (value ? ': заметка обновлена' : ': заметка удалена')];
+        if (!saveRecords()) return;
+        editor.hidden = true;
         render();
       };
-      saveButton.addEventListener('click', save, { once: true });
-      input.addEventListener('keydown', event => {
+      saveButton.onclick = save;
+      input.onkeydown = event => {
         if (event.key === 'Enter') { event.preventDefault(); save(); }
         if (event.key === 'Escape') editor.hidden = true;
-      });
+      };
     }
 
     function openForm(record = null) { els.entryForm.reset(); els.dialogTitle.textContent = record ? 'Править ДТ' : 'Добавить ДТ'; if (record) Object.entries(record).forEach(([key, value]) => { if (els.entryForm.elements[key]) els.entryForm.elements[key].value = value || ''; }); if (typeof els.entryDialog.showModal === 'function') els.entryDialog.showModal(); else els.entryDialog.setAttribute('open', ''); }
