@@ -1,3 +1,8 @@
+import {createTelegramClient} from './monitor/modules/telegram/client.js?v=20261123-connection-state';
+import {installTelegramLogin} from './monitor/modules/telegram/login.js';
+import {ACCESS_COPY, renderAccessCopy, copyReady, setServerAccessCopy} from './shared/access-copy.js?v=20261125';
+renderAccessCopy();
+const client = createTelegramClient();
 const API = 'https://api.keden44.com/v1/telegram';
 const DEVICE_KEY = 'keden44-telegram-device-v1';
 const CLAIM_KEY = 'keden44-payment-claim-v1';
@@ -13,8 +18,50 @@ const accountStatus = document.querySelector('#subscriptionAccount');
 const subscriptionStatus = document.querySelector('#subscriptionStatus');
 const checkSubscriptionStatus = document.querySelector('#checkSubscriptionStatus');
 const loginLink = document.querySelector('#subscriptionLogin');
+const returnLink = document.querySelector('#returnToTool');
+const logoutButton = document.querySelector('#subscriptionLogout');
+const loginStatus = document.querySelector('#loginStatus');
+const retryLogin = document.querySelector('#retryLogin');
+const destinations = new Map([['/tools/accounting/', 'Открыть отчёт бухгалтеру'], ['/tools/audit/', 'Открыть сверку требования'], ['/monitor/', 'Открыть Монитор'], ['/extension/', 'Открыть расширение']]);
+const requestedReturn = new URL(location.href).searchParams.get('return');
+const returnPath = destinations.has(requestedReturn) ? requestedReturn : '/monitor/';
+const accessScope = returnPath === '/tools/accounting/' ? 'accounting' : returnPath === '/tools/audit/' ? 'audit' : returnPath === '/extension/' ? 'extension' : 'monitor';
+returnLink.href = returnPath;
+returnLink.textContent = destinations.get(returnPath);
+const telegramLogin = installTelegramLogin(client, () => checkAccount());
+document.querySelector('#googleSignIn').nextElementSibling.className = 'button secondary';
+let googlePreparing = false;
+async function prepareGoogle(attempt = 0) {
+  if (signedIn || googlePreparing) return;
+  if (!window.google?.accounts?.id) {
+    if (attempt < 40) setTimeout(() => prepareGoogle(attempt + 1), 250);
+    else { loginStatus.textContent = 'Вход Google недоступен. Используйте Telegram или повторите попытку.'; retryLogin.hidden = false; }
+    return;
+  }
+  googlePreparing = true;
+  retryLogin.hidden = true;
+  try {
+    const challenge = await client.googleChallenge();
+    if (signedIn) return;
+    // Use the same OAuth client and server nonce validation as the Monitor.
+    window.google.accounts.id.initialize({client_id:'57476430330-a9mvuo5sh4gec820jtd1u5ldcgrm8tpn.apps.googleusercontent.com',nonce:challenge.nonce,callback:async response => {
+      try { await client.googleAuth(response.credential); loginStatus.textContent = ''; await checkAccount(); }
+      catch { loginStatus.textContent = 'Не удалось войти. Повторите вход.'; void prepareGoogle(); }
+    }});
+    document.querySelector('#googleSignIn').replaceChildren();
+    window.google.accounts.id.renderButton(document.querySelector('#googleSignIn'), {theme:'outline',size:'large',text:'signin_with',shape:'rectangular'});
+  } catch { loginStatus.textContent = 'Не удалось подготовить вход Google. Используйте Telegram или повторите попытку.'; retryLogin.hidden = false; }
+  finally { googlePreparing = false; }
+}
+retryLogin.addEventListener('click', () => void prepareGoogle());
+logoutButton.addEventListener('click', async () => {
+  logoutButton.disabled = true;
+  try { await client.logout(); await checkAccount(); }
+  catch { accountStatus.textContent = 'Не удалось выйти. Повторите попытку.'; }
+  finally { logoutButton.disabled = false; }
+});
 const paymentCheck = document.querySelector('.payment-check');
-purchaseLink.after(paymentCheck);
+purchaseLink.parentElement.after(paymentCheck);
 paymentCheck.style.cssText = 'grid-template-columns:1fr;gap:16px;padding:24px 0';
 paymentCheck.hidden = true;
 let signedIn = false;
@@ -48,12 +95,26 @@ async function refreshSubscription(force = false) {
     && credentials()?.deviceSecret === device?.deviceSecret;
   const pending = (async () => {
     try {
-      const { access } = await request('/access/status', { clientType: 'monitor' });
+      let access;
+      try { ({access} = await client.accessStatus(accessScope)); }
+      catch (error) { if (error.access) access = error.access; else throw error; }
       if (!current()) return;
+      setServerAccessCopy(access?.uiCopy);
+      returnLink.hidden = access?.allowed !== true;
       const expiry = Date.parse(access?.validUntil || '');
       if (['active', 'device_limit'].includes(access?.state) && expiry >= Date.now()) {
         subscriptionStatus.dataset.state = 'success';
-        subscriptionStatus.textContent = 'Оплата подтверждена. Подписка действует до ' + formatAccessDate(expiry) + '.';
+        subscriptionStatus.textContent = 'Оплата подтверждена. Подписка действует до ' + formatAccessDate(expiry).replace(/\.$/, '') + '.';
+      } else if (access?.state === 'trial') {
+        subscriptionStatus.dataset.state = 'success';
+        const until = access.trialUntil || access.validUntil;
+        subscriptionStatus.textContent = until ? 'Пробный доступ действует до ' + formatAccessDate(until).replace(/\.$/, '') + '.' : 'Пробный доступ активен.';
+      } else if (access?.state === 'promo') {
+        subscriptionStatus.dataset.state = 'success';
+        subscriptionStatus.textContent = 'Доступ по приглашению' + (access.validUntil ? ' до ' + formatAccessDate(access.validUntil).replace(/\.$/, '') : ' без ограничения срока') + '.';
+      } else if (access?.state === 'grace') {
+        subscriptionStatus.dataset.state = 'pending';
+        subscriptionStatus.textContent = 'Ожидается оплата.' + (access.graceUntil ? ' Доступ сохраняется до ' + formatAccessDate(access.graceUntil).replace(/\.$/, '') + '.' : ' Проверьте срок доступа.');
       } else {
         subscriptionStatus.dataset.state = 'pending';
         subscriptionStatus.textContent = access?.state === 'promo' || access?.state === 'trial'
@@ -63,7 +124,7 @@ async function refreshSubscription(force = false) {
     } catch {
       if (!current()) return;
       subscriptionStatus.dataset.state = 'pending';
-      subscriptionStatus.textContent = 'Не удалось проверить статус подписки. Попробуйте ещё раз.';
+      subscriptionStatus.textContent = ACCESS_COPY.unavailable;
     } finally {
       if (accessRequest?.pending === pending) {
         accessRequest = undefined;
@@ -79,6 +140,7 @@ function clearSubscriptionStatus() {
   accessRequest = undefined;
   accessAccount = '';
   subscriptionStatus.hidden = true;
+  returnLink.hidden = true;
   checkSubscriptionStatus.hidden = true;
   checkSubscriptionStatus.disabled = false;
 }
@@ -103,9 +165,12 @@ purchaseLink.addEventListener('click', () => {
 });
 
 async function checkAccount() {
+  await copyReady;
   const generation = ++accountCheck;
   clearTimeout(pollTimer);
   signedIn = false;
+  returnLink.hidden = true;
+  logoutButton.hidden = true;
   accountKey = '';
   paymentCheck.hidden = true;
   clearTimeout(paymentRevealTimer);
@@ -115,8 +180,10 @@ async function checkAccount() {
     const device = credentials();
     if (!device?.accountId || !device?.deviceSecret) {
       clearSubscriptionStatus();
-      accountStatus.textContent = 'Для подписки войдите через Google или Telegram в Мониторе.';
+      accountStatus.textContent = ACCESS_COPY.signIn;
       loginLink.hidden = false;
+      telegramLogin.setAuthenticated(false);
+      void prepareGoogle();
       return;
     }
     const result = await request('/connection');
@@ -125,12 +192,15 @@ async function checkAccount() {
     signedIn = Boolean(profile?.email || profile?.telegramId);
     accountStatus.textContent = signedIn
       ? `Вход выполнен: ${profile.email || 'Telegram ID ' + profile.telegramId}`
-      : 'Для подписки войдите через Google или Telegram в Мониторе.';
+      : ACCESS_COPY.signIn;
     loginLink.hidden = signedIn;
+    logoutButton.hidden = !signedIn;
+    telegramLogin.setAuthenticated(signedIn);
+    if (!signedIn) void prepareGoogle();
     accountKey = signedIn ? String(profile.email || 'tg:' + profile.telegramId) : '';
     if (signedIn) {
       checkSubscriptionStatus.hidden = false;
-      void refreshSubscription();
+      void refreshSubscription(true);
     } else clearSubscriptionStatus();
     revealPaymentCheck();
     purchaseLink.hidden = !signedIn;
@@ -142,6 +212,8 @@ async function checkAccount() {
     if (generation !== accountCheck) return;
     clearSubscriptionStatus();
     loginLink.hidden = false;
+    telegramLogin.setAuthenticated(false);
+    void prepareGoogle();
     accountStatus.textContent = 'Не удалось проверить аккаунт. Обновите страницу перед оплатой.';
   }
 }
@@ -163,7 +235,7 @@ async function request(path, body = {}) {
   const response = await fetch(`${API}${path}`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...device, ...body }),
-    ...(path === '/access/status' ? { signal: AbortSignal.timeout(10_000) } : {})
+    signal: AbortSignal.timeout(15_000)
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.error || `Ошибка ${response.status}`);

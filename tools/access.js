@@ -1,5 +1,6 @@
 import {createTelegramClient} from '../monitor/modules/telegram/client.js?v=offline-20261104';
 import {readPermit,clearPermit,DEVICE_KEY} from '../monitor/modules/core/access-permit.mjs';
+import {ACCESS_COPY,copyReady,setServerAccessCopy} from '../shared/access-copy.js?v=20261125';
 const client=createTelegramClient();
 const scope=location.pathname.startsWith('/tools/audit/')?'audit':'accounting';
 let pending=null,lastAttempt=0,epoch=0;
@@ -24,6 +25,7 @@ function refresh(){
  const current=epoch;
  pending=client.accessStatus(scope).then(response=>{
   if(current!==epoch)throw Error('Аккаунт изменился. Повторите проверку доступа.');
+  setServerAccessCopy(response.access?.uiCopy);
   if(response.access?.allowed!==true){clearPermit(localStorage);throw Error('Для инструмента нужен активный доступ KEDEN44.');}
   void flushUsage();return response.access;
  }).finally(()=>{pending=null;});
@@ -44,12 +46,13 @@ function showAllowed(access){
  return access;
 }
 export async function requireAccess(force=false){
+ await copyReady;
  const local=await readPermit(localStorage,scope);
  if(local&&!force){
   if(Date.now()-Math.max(lastAttempt,local.issuedAt)>retryDelay)void refresh().then(showAllowed).catch(async()=>{
    if(!await readPermit(localStorage,scope)){
     const notice=document.getElementById('accessNotice');
-    if(notice){notice.textContent='Доступ изменился. Откройте Монитор и проверьте подписку.';notice.dataset.state='blocked';}
+    if(notice){showAccessRequired(notice,'Доступ изменился. Проверьте подписку.');}
    }
   });
   return showAllowed(local);
@@ -60,16 +63,21 @@ export async function requireAccess(force=false){
   const fallback=await readPermit(localStorage,scope);
   if(fallback)return showAllowed(fallback);
   const notice=document.getElementById('accessNotice');
-  const message='Не удалось подтвердить доступ. Откройте Монитор для входа или повторите проверку.';
+  const message=[401,402,403].includes(error.status)
+   ? ACCESS_COPY.signIn+' '+ACCESS_COPY.trial
+   : ACCESS_COPY.unavailable;
   if(notice){
-   notice.replaceChildren(document.createTextNode(message+' '));
-   const link=document.createElement('a');link.href='/monitor/';link.textContent='Открыть Монитор';
-   const retry=document.createElement('button');retry.type='button';retry.textContent='Проверить доступ';retry.className='button';
-   retry.addEventListener('click',()=>void requireAccess(true).catch(()=>{}));
-   notice.append(link,document.createTextNode(' '),retry);notice.dataset.state='blocked';
+   showAccessRequired(notice,message);
   }
   throw new Error(message,{cause:error});
  }
+}
+function showAccessRequired(notice,message){
+ notice.replaceChildren(document.createTextNode(message+' '));
+ const link=document.createElement('a');link.href='/subscription/?return='+encodeURIComponent(location.pathname);link.textContent='Войти и проверить подписку';
+ const retry=document.createElement('button');retry.type='button';retry.textContent='Проверить доступ';retry.className='button';
+ retry.addEventListener('click',()=>void requireAccess(true).catch(()=>{}));
+ notice.append(link,document.createTextNode(' '),retry);notice.dataset.state='blocked';
 }
 window.addEventListener('storage',event=>{
  if(event.key==='keden44-telegram-device-v1'||event.key===null){epoch++;void requireAccess().catch(()=>{});}

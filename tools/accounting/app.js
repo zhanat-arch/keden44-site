@@ -52,4 +52,4 @@ $('download').addEventListener('click',async()=>{
 });
 import {parseDeclaration} from '../accounting-engine.js?v=characteristics-boundary-20261105';
 import {makeReport} from '../excel-report.js?v=characteristics-boundary-20261105';
-import {requireAccess,recordReport} from '../access.js?v=offline-20261104';
+import {requireAccess,recordReport} from '../access.js?v=20261125-subscription';

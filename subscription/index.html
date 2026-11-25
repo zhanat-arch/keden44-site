@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Подписка KEDEN44 для расширения и Монитора статусов ДТ.">
+  <meta name="description" content="Вход в KEDEN44, проверка доступа, пробный период и оплата подписки.">
   <title>Подписка KEDEN44</title>
   <link rel="icon" href="/assets/keden44-mark.png">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/subscription.css">
+  <link rel="stylesheet" href="/subscription.css?v=20261125-universal">
   <link rel="stylesheet" href="/subscription-flow.css">
   <style>[hidden]{display:none!important}</style>
 </head>
@@ -15,32 +15,37 @@
   <header class="site-header"><a class="brand" href="/"><img src="/assets/keden44-mark.png" alt="" width="38" height="38"><span>KEDEN44</span></a><nav><a href="/extension/">Расширение</a><a href="/monitor/">Монитор</a><a href="/guide.html">Инструкция</a></nav></header>
   <main class="subscription-page">
     <section class="subscription-intro">
-      <p class="eyebrow"><span class="status-dot"></span> Открытое тестирование</p>
       <h1>Подписка KEDEN44</h1>
-      <p class="subscription-lead">Расширение для документов графы 44 и Монитор статусов ДТ работают как один продукт.</p>
+      <p class="subscription-lead">Для доступа нужно авторизоваться.</p>
+      <p data-access-copy="trial">Новым аккаунтам доступен пробный период. Войдите, чтобы узнать срок доступа.</p>
+    </section>
+    <section class="account-band" aria-labelledby="account-title">
+      <h2 id="account-title">Аккаунт и доступ</h2>
+      <p id="subscriptionAccount" role="status">Проверяем аккаунт...</p>
+      <div id="subscriptionLogin"><div id="googleSignIn"></div><p id="loginStatus" role="status"></p><button id="retryLogin" class="button secondary" type="button" hidden>Повторить подготовку входа</button></div>
+      <p id="subscriptionStatus" class="payment-status" role="status" hidden></p>
+      <div class="account-actions"><button id="checkSubscriptionStatus" class="button secondary" type="button" hidden>Проверить статус</button><a id="returnToTool" class="button primary" href="/monitor/" hidden>Вернуться в инструмент</a><button id="subscriptionLogout" class="button secondary" type="button" hidden>Выйти</button></div>
     </section>
     <section class="price-band" aria-labelledby="price-title">
-      <div><p class="eyebrow">Акционная цена</p><h2 id="price-title"><strong>1 250 ₸</strong><span>≈ 2,77 $ в месяц</span></h2></div>
+      <div><p class="eyebrow">Стоимость доступа</p><h2 id="price-title"><strong data-visible-until="2027-01-01T00:00:00+05:00">1 250 ₸</strong><strong data-visible-from="2027-01-01T00:00:00+05:00" hidden>2 500 ₸</strong><span>в месяц</span></h2></div>
       <div class="price-copy">
-        <p>До 31 октября 2026 года все готовые функции доступны бесплатно. Доступ за ноябрь 2026 года оплачивается разовой покупкой поста на Boosty. Для декабря опубликуем отдельный пост.</p>
+        <p>После пробного периода доступ можно продлить разовой покупкой поста на Boosty.</p>
+        <p data-visible-until="2026-12-01T00:00:00+05:00">Сейчас доступна оплата за ноябрь 2026 года. Для декабря опубликуем отдельный пост.</p>
         <p class="fine-print"><strong>Выбирайте разовую покупку поста, а не подписку Boosty.</strong> Покупка этого поста не включает автопродление и ежемесячные списания. Boosty пока используется как временный способ оплаты доступа.</p>
-        <p class="fine-print">Стоимость доступа — 1 250 ₸ в месяц до конца 2026 года (примерно 2,77 $); с 1 января 2027 года — 2 500 ₸ (примерно 5,55 $). Итоговую сумму и валюту проверьте в Boosty перед подтверждением: списание может быть в долларах США, а сумма в тенге зависит от курса и условий банка.</p>
-        <p>Для оплаты доступа и синхронизации войдите через Google или Telegram. Используйте один аккаунт в расширении и Мониторе на всех устройствах.</p>
-        <p id="subscriptionAccount" role="status">Проверяем аккаунт...</p>
-        <p id="subscriptionStatus" class="payment-status" role="status" hidden></p>
-        <button id="checkSubscriptionStatus" class="button secondary" type="button" hidden>Проверить статус</button>
-        <a id="subscriptionLogin" class="button secondary" href="/monitor/" target="_blank" rel="noopener">Войти в Мониторе</a>
-        <a id="purchaseLink" class="button primary" href="https://boosty.to/zhanat-arch/posts/66c13f5d-7d4f-4395-a77f-ecaa85749bdf" target="_blank" rel="noreferrer" hidden>Оплатить ноябрь — разовая покупка</a>
+        <p class="fine-print"><span data-visible-until="2027-01-01T00:00:00+05:00">Стоимость доступа — 1 250 ₸ в месяц до конца 2026 года; с 1 января 2027 года — 2 500 ₸. </span>Итоговую сумму и валюту проверьте в Boosty перед подтверждением: сумма в тенге зависит от курса и условий банка.</p>
+        <p>Используйте один аккаунт для всех инструментов и устройств. Перед оплатой проверьте аккаунт и текущий статус выше.</p>
+        <div data-visible-until="2026-12-01T00:00:00+05:00"><a id="purchaseLink" class="button primary" href="https://boosty.to/zhanat-arch/posts/66c13f5d-7d4f-4395-a77f-ecaa85749bdf" target="_blank" rel="noreferrer" hidden>Оплатить ноябрь — разовая покупка</a></div>
+        <p data-visible-from="2026-12-01T00:00:00+05:00" hidden>Ссылка на оплату нового периода готовится. Не оплачивайте пост за прошедший месяц. <a href="/support/">Свяжитесь с поддержкой</a>.</p>
         <p class="fine-print">Безвозмездная <a href="/support/">поддержка проекта</a> оформляется отдельно и не предоставляет платный доступ. Ранее оформленные подписки Boosty автоматически не отменяются: проверьте автопродление в разделе <a href="https://boosty.to/app/settings/subscriptions" target="_blank" rel="noreferrer">«Мои подписки»</a>.</p>
       </div>
-      <p>Новому аккаунту — 7 дней тестирования с первого подтверждённого входа. После общего теста до 31 октября 2026 года и после окончания оплаченной подписки — по 7 календарных дней на оплату. Сроки не складываются: действует более поздняя дата окончания. После личной недели теста дополнительная неделя не начисляется. Повторный вход и смена устройства не запускают тест заново.</p>
-      <p>Рабочий и домашний ПК можно использовать по очереди: расширение одновременно работает на одном компьютере. Монитор доступен на трёх устройствах, например на основном ПК и двух телефонах.</p>
+      <p data-access-copy="grace">Точный статус и срок доступа показаны после входа.</p>
+      <p>Число доступных устройств и состав доступа определяются вашим тарифом или приглашением.</p>
     </section>
     <section class="included-band">
       <p class="eyebrow">В подписке</p>
       <h2>Один доступ ко всему KEDEN44</h2>
-      <ul><li>прикрепление документов графы 44;</li><li>оптимизация и разделение больших PDF;</li><li>Монитор статусов ДТ и условных выпусков;</li><li>уведомления и последующие обновления продукта.</li></ul>
-      <p class="fine-print">После оплаты сохраните подтверждение Boosty. Подписка и доступ учитываются системой KEDEN44 независимо от платёжной площадки; до окончания открытого тестирования оплата не ограничивает доступ.</p>
+      <ul><li>прикрепление документов графы 44, оптимизация и разделение больших PDF;</li><li>Монитор статусов ДТ, условных выпусков и уведомления в Telegram;</li><li>отчёты бухгалтеру: декларация PDF → Excel;</li><li>сверка требования и ФРРО;</li><li>обновления продукта.</li></ul>
+      <p class="fine-print">Доступ по приглашению может распространяться только на отдельные инструменты. PDF в инструментах обрабатываются на вашем устройстве. После оплаты сохраните подтверждение Boosty.</p>
     </section>
     <section class="payment-check" aria-labelledby="payment-check-title">
       <div><p class="eyebrow">Проверка оплаты</p><h2 id="payment-check-title">Уже оплатили?</h2><p>Если email в Boosty совпадает с подтверждённым email KEDEN44, оплата может подтвердиться автоматически. Если статус не обновился, нажмите «Я оплатил». Данные покупки понадобятся, только если платёж не найдётся.</p></div>
@@ -61,6 +66,8 @@
     </section>
   </main>
   <footer data-site-footer><a href="/">KEDEN44</a> · <a href="/privacy.html">Конфиденциальность</a> · <a href="/help/">Справка</a></footer>
-  <script type="module" src="/subscription.js?v=20261113-payment-status"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="/shared/timed-content.js?v=20261125"></script>
+  <script type="module" src="/subscription.js?v=20261125-universal"></script>
 <script defer src="/shared/footer.js"></script></body>
 </html>

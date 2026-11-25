@@ -2,6 +2,7 @@ import { conditionalReleaseDeadline, daysUntil, declarationNumberParts, declarat
 import { releaseStatusFromNotification, latestEventTime, visibleRequestForRecord, controlsFromHistory, controlAssignmentFromNotification, inspectionStateFromNotification, notificationForChange, notificationTimestamp, summarizeControlAssignments } from './modules/core/notifications.js?v=20261123';
 import { fillMissingRecordFields } from './modules/core/records.js';
 import { normalizeRegime } from './modules/core/regime.js';
+import { ACCESS_COPY, setServerAccessCopy } from '../shared/access-copy.js?v=20261125';
 import { isRecordDeleted, mergeRecordDeletions } from './modules/core/deletions.js';
 import { refreshedFields } from './modules/core/refresh.js';
 import { normalizeExtensionGoods } from './modules/core/goods.js';
@@ -144,17 +145,19 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
     function renderAccessState() {
       if (!accessState) return;
       const blocked = accessState.allowed === false;
+      els.accessNoticeTitle.hidden = false;
       for (const control of [els.importPdfBtn, els.addBtn, els.checkAllBtn, els.checkDueBtn, els.clientRecipientsBtn]) control.disabled = blocked;
       els.accessNoticeAction.hidden = !['grace', 'blocked'].includes(accessState.state);
       if (accessState.state === 'active') {
         els.accessNoticeTitle.textContent = `Подписка активна до ${accessDate(accessState.validUntil)}`;
         els.accessNoticeText.textContent = 'Серверная проверка и синхронизация работают.';
       } else if (accessState.state === 'trial') {
-        els.accessNoticeTitle.textContent = `Бесплатный тест до ${accessDate(accessState.trialUntil || '2026-10-31T23:59:59+05:00')}`;
-        els.accessNoticeText.textContent = 'Новому аккаунту — 7 дней бесплатного теста. Сроки теста и оплаты не суммируются.';
+        const trialUntil = accessState.trialUntil || accessState.validUntil;
+        els.accessNoticeTitle.textContent = trialUntil ? `Пробный доступ до ${accessDate(trialUntil)}` : 'Пробный доступ';
+        els.accessNoticeText.textContent = ACCESS_COPY.trialActive;
       } else if (accessState.state === 'grace') {
         els.accessNoticeTitle.textContent = 'Ожидается оплата';
-        els.accessNoticeText.textContent = `На оплату предоставляется 7 календарных дней. Монитор продолжит работу до ${accessDate(accessState.graceUntil)}.`;
+        els.accessNoticeText.textContent = `Монитор продолжит работу до ${accessDate(accessState.graceUntil)}.`;
       } else if (accessState.state === 'promo') {
         els.accessNoticeTitle.textContent = accessState.validUntil ? `Доступ по приглашению до ${accessDate(accessState.validUntil)}` : 'Доступ по приглашению';
         els.accessNoticeText.textContent = 'Для этого устройства предоставлен доступ к Монитору ДТ.';
@@ -173,6 +176,7 @@ import { installSharedCards } from './modules/ui/shared-cards.js?v=3';
       try {
         const result = await telegram.accessStatus();
         accessState = result.access;
+        setServerAccessCopy(accessState?.uiCopy);
         accessCheckedAt = Date.now();
       } catch (error) {
         accessState = error.access || accessState;
