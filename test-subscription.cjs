@@ -71,6 +71,14 @@ const root=__dirname,origin='https://keden44.com';
     copy.setServerAccessCopy({trial:''});
     return copy.ACCESS_COPY.trial===original;
    }),true);
+   if(state==='active'){
+    for(const [time,november,december] of [['2026-11-30T18:59:59Z',true,false],['2026-11-30T19:00:00Z',false,true],['2026-12-31T19:00:00Z',false,false]]){
+     await page.evaluate(async time=>{const {refreshTimedContent}=await import('/shared/timed-content.js?v=20261125');refreshTimedContent(document,Date.parse(time));},time);
+     assert.equal(await page.locator('#purchaseLink').isVisible(),november);
+     assert.equal(await page.locator('#decemberPurchaseLink').isVisible(),december);
+    }
+    assert.equal(await page.locator('#decemberPurchaseLink').getAttribute('href'),'https://boosty.to/zhanat-arch/posts/b3d3ef91-c48f-4057-8896-cb7977d878ac');
+   }
    assert.equal(await page.evaluate(async()=>{
     const {isVisibleAt}=await import('/shared/timed-content.js?v=20261125');
     const el=document.createElement('p');el.setAttribute('data-visible-until','2026-12-01T00:00:00+05:00');

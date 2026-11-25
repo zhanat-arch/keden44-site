@@ -14,6 +14,7 @@ const cancelButton = document.querySelector('#cancelPaymentClaim');
 let pollTimer;
 let pollCount = 0;
 const purchaseLink = document.querySelector('#purchaseLink');
+const purchaseLinks = [purchaseLink, document.querySelector('#decemberPurchaseLink')];
 const accountStatus = document.querySelector('#subscriptionAccount');
 const subscriptionStatus = document.querySelector('#subscriptionStatus');
 const checkSubscriptionStatus = document.querySelector('#checkSubscriptionStatus');
@@ -61,7 +62,7 @@ logoutButton.addEventListener('click', async () => {
   finally { logoutButton.disabled = false; }
 });
 const paymentCheck = document.querySelector('.payment-check');
-purchaseLink.parentElement.after(paymentCheck);
+purchaseLinks.at(-1).parentElement.after(paymentCheck);
 paymentCheck.style.cssText = 'grid-template-columns:1fr;gap:16px;padding:24px 0';
 paymentCheck.hidden = true;
 let signedIn = false;
@@ -158,7 +159,7 @@ function revealPaymentCheck() {
   }
   paymentCheck.hidden = false;
 }
-purchaseLink.addEventListener('click', () => {
+for (const link of purchaseLinks) link.addEventListener('click', () => {
   if (!signedIn || !accountKey) return;
   sessionStorage.setItem('keden44-purchase-start:' + accountKey, String(Date.now()));
   revealPaymentCheck();
@@ -174,7 +175,7 @@ async function checkAccount() {
   accountKey = '';
   paymentCheck.hidden = true;
   clearTimeout(paymentRevealTimer);
-  purchaseLink.hidden = true;
+  for (const link of purchaseLinks) link.hidden = true;
   paidButton.disabled = true;
   try {
     const device = credentials();
@@ -203,7 +204,7 @@ async function checkAccount() {
       void refreshSubscription(true);
     } else clearSubscriptionStatus();
     revealPaymentCheck();
-    purchaseLink.hidden = !signedIn;
+    for (const link of purchaseLinks) link.hidden = !signedIn;
     paidButton.disabled = !signedIn;
     const linkedClaim=new URL(location.href).searchParams.get('payment');
     if (signedIn && /^[0-9a-f-]{36}$/i.test(linkedClaim||'')) localStorage.setItem(CLAIM_KEY,linkedClaim);
