@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
 let data=null,generation=0;
+const problems=createProblemPanel({report:reportToolProblem});$('status').after(problems.element);
 const ready=Promise.all([fetch('../payment-types.json?v=classifiers-20261127').then(r=>r.json()),fetch('../templates.json?v=classifiers-20261127').then(r=>r.json())]);
 lucide.createIcons();
 const fmt=(value,digits=2)=>value==null?'—':Number(value).toLocaleString('ru-RU',{maximumFractionDigits:digits,minimumFractionDigits:digits});
@@ -17,6 +18,7 @@ function rows(){
 }
 function show(result){
  data=result;$('empty').hidden=true;$('workspace').hidden=false;$('filename').textContent=data.filename||'PDF ДТ';
+ $('download').disabled=!data.items.length;
  $('dt').textContent=(data.metadata.dtNumber||'Не определена')+(data.metadata.correctionNumber?` · КДТ №${data.metadata.correctionNumber}`:'');$('count').textContent=`${data.items.length} / ${data.metadata.expectedItems||'?'}`;
  $('customs').textContent=fmt(data.metadata.totalCustoms)+' ₸';$('health').textContent=data.complete?'Пройдена':'Нужна проверка';$('health').style.color=data.complete?'#167359':'#a44916';
  $('warningCount').textContent=data.warnings.length;$('paymentsBody').replaceChildren();
@@ -25,17 +27,18 @@ function show(result){
  $('warnings').replaceChildren();for(const text of [...(data.notices||[]),...(data.warnings.length?data.warnings:['Полнота товаров и контрольные суммы проверены.'])]){const li=document.createElement('li');li.textContent=text;$('warnings').append(li);}
  $('status').textContent=data.complete?'Декларация разобрана':'Декларация разобрана. Проверьте замечания перед использованием отчёта.';
  rows();
+ const problem=problemFor(result);if(problem)problems.show(problem,result);
 }
 async function load(file){
- if(!file)return;const current=++generation;
+ if(!file)return;const current=++generation;problems.clear();data=null;let parsing=false;
  $('status').className='';$('workspace').hidden=true;$('empty').hidden=true;$('progress').hidden=false;$('progress').value=0;
  $('status').textContent='Открываем PDF…';$('file').disabled=true;
- try{await requireAccess();const[catalog]=await ready;const result=await parseDeclaration(file,catalog,(page,total)=>{if(current!==generation)return;$('status').textContent=`Разбор PDF · страница ${page} из ${total}`;$('progress').value=page/total*100;});if(current===generation)show(result);}
- catch(error){if(current===generation){$('status').textContent=error.message;$('status').className='error';}}
+ try{await requireAccess();const[catalog]=await ready;parsing=true;const result=await parseDeclaration(file,catalog,(page,total)=>{if(current!==generation)return;$('status').textContent=`Разбор PDF · страница ${page} из ${total}`;$('progress').value=page/total*100;});if(current===generation)show(result);}
+ catch(error){if(current===generation){$('status').textContent=parsing?'Не удалось прочитать декларацию. Проверьте PDF или обратитесь в поддержку.':error.message;$('status').className='error';if(parsing)problems.show('parse_error');}}
  finally{$('file').disabled=false;$('file').value='';$('progress').hidden=true;}
 }
 $('file').addEventListener('change',()=>void load($('file').files[0]));
-$('clear').addEventListener('click',()=>{generation++;data=null;$('workspace').hidden=true;$('empty').hidden=false;$('filename').textContent='Декларация не загружена';$('status').textContent='Выберите декларацию на товары';$('progress').hidden=true;$('search').value='';});
+$('clear').addEventListener('click',()=>{generation++;data=null;problems.clear();$('workspace').hidden=true;$('empty').hidden=false;$('filename').textContent='Декларация не загружена';$('status').textContent='Выберите декларацию на товары';$('progress').hidden=true;$('search').value='';});
 document.addEventListener('dragover',event=>{if(event.dataTransfer.types.includes('Files'))event.preventDefault();});
 document.addEventListener('drop',event=>{if(!event.dataTransfer.files.length)return;event.preventDefault();if(!$('file').disabled)void load(event.dataTransfer.files[0]);});
 $('search').addEventListener('input',rows);
@@ -46,10 +49,12 @@ for(const tab of document.querySelectorAll('[data-tab]'))tab.addEventListener('c
 $('download').addEventListener('click',async()=>{
  if(!data)return;
  $('download').disabled=true;$('status').textContent='Формируем Excel…';
- try{await requireAccess();const[catalog,profiles]=await ready;const buffer=await makeReport(data,profiles.find(p=>p.id===$('profile').value),catalog);
+ let exporting=false;
+ try{await requireAccess();const[catalog,profiles]=await ready;exporting=true;const buffer=await makeReport(data,profiles.find(p=>p.id===$('profile').value),catalog);
   const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=`Отчет_${(data.metadata.dtNumber||'ДТ').replaceAll('/','_')}_${$('profile').value}.xlsx`;a.click();recordReport($('profile').value);setTimeout(()=>URL.revokeObjectURL(url),30000);$('status').textContent='Excel сформирован';
- }catch(error){$('status').textContent=error.message;}finally{$('download').disabled=false;}
+ }catch(error){$('status').textContent=exporting?'Не удалось сформировать Excel. Повторите попытку или сообщите в поддержку.':error.message;if(exporting)problems.show('export_error',data);}finally{$('download').disabled=false;}
 });
 import {parseDeclaration} from '../accounting-engine.js?v=classifiers-20261127';
 import {makeReport} from '../excel-report.js?v=classifiers-20261127';
-import {requireAccess,recordReport} from '../access.js?v=20261125-subscription';
+import {requireAccess,recordReport,reportToolProblem} from '../access.js?v=tool-support-20261127';
+import {createProblemPanel,problemFor} from './problem.js?v=tool-support-20261127';

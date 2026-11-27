@@ -82,6 +82,7 @@ export function createTelegramClient({
       finally{credentials=null;storage?.removeItem(STORAGE_KEY);}
     },
     reportUsage: payload => authenticated('/access/usage',payload),
+    reportToolProblem: payload => authenticated('/tools/problem',payload),
     invitePreview: code => request('/access/invite/preview',{code}),
     inviteActivate: code => authenticated('/access/invite/activate',{code}),
     clientRecipients: () => authenticated('/clients/list'),

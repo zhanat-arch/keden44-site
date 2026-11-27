@@ -1,7 +1,8 @@
-import {createTelegramClient} from '../monitor/modules/telegram/client.js?v=offline-20261104';
+import {createTelegramClient} from '../monitor/modules/telegram/client.js?v=tool-support-20261127';
 import {readPermit,clearPermit,DEVICE_KEY} from '../monitor/modules/core/access-permit.mjs';
 import {ACCESS_COPY,copyReady,setServerAccessCopy} from '../shared/access-copy.js?v=20261125';
 const client=createTelegramClient();
+export const reportToolProblem=payload=>client.reportToolProblem(payload);
 const scope=location.pathname.startsWith('/tools/audit/')?'audit':'accounting';
 let pending=null,lastAttempt=0,epoch=0;
 const retryDelay=10*60*1000;
