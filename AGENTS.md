@@ -30,3 +30,17 @@ For every new or changed public page:
 
 Run the shared footer/analytics regression test when editing either shared file.
 Update this checklist whenever a new recurring publication mistake is found.
+
+# Data Semantics Before Implementation
+
+- Trace every affected field from its source document through parsing and mapping
+  to its exported column. Do not infer its meaning from a header or one example.
+- Distinguish primary quantities/units from additional customs quantities/units.
+  Use authoritative classifiers for unit and currency codes, with provenance.
+- Proactively check different units, currencies, missing fields, leading zeros,
+  and source formats. Offer the complete mapping when a narrow hardcoded special
+  case would predictably fail for other users.
+- Preserve import-compatible columns, names, and order unless explicitly changed.
+  Ask about unresolved business meaning before altering the report contract.
+- Keep unknown data visibly unclassified rather than guessing. Explain source
+  and mapping limitations in the report, and test the exceptional cases.
